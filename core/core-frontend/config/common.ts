@@ -14,6 +14,24 @@ import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components-secondary/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components-secondary/resolvers'
 const root = process.cwd()
+const skipViteLint = process.env.DE_SKIP_VITE_LINT === 'true'
+const lintPlugins = skipViteLint
+  ? []
+  : [
+      eslintPlugin({
+        cache: false,
+        include: [
+          'src/**/*.ts',
+          'src/**/*.tsx',
+          'src/**/*.js',
+          'src/**/*.vue',
+          'src/*.ts',
+          'src/*.js',
+          'src/*.vue'
+        ]
+      }),
+      viteStylelint()
+    ]
 
 export function pathResolve(dir: string) {
   return resolve(root, '.', dir)
@@ -50,19 +68,7 @@ export default {
       compositionOnly: true,
       include: [resolve(__dirname, 'src/locales/**')]
     }),
-    eslintPlugin({
-      cache: false,
-      include: [
-        'src/**/*.ts',
-        'src/**/*.tsx',
-        'src/**/*.js',
-        'src/**/*.vue',
-        'src/*.ts',
-        'src/*.js',
-        'src/*.vue'
-      ]
-    }),
-    viteStylelint()
+    ...lintPlugins
   ],
   css: {
     preprocessorOptions: {
