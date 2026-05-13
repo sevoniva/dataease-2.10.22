@@ -23,6 +23,43 @@ public class ObOracleTest {
     }
 
     @Test
+    public void getJdbcAllowsEmptyDatabaseForCurrentSchemaConnections() {
+        ObOracle obOracle = new ObOracle();
+        obOracle.setHost("127.0.0.1");
+        obOracle.setPort(2881);
+
+        assertEquals(
+                "jdbc:oceanbase://127.0.0.1:2881/",
+                obOracle.getJdbc()
+        );
+    }
+
+    @Test
+    public void getSchemaDefaultsToUppercaseUsernameBeforeTenant() {
+        ObOracle obOracle = new ObOracle();
+        obOracle.setUsername("test@obora");
+
+        assertEquals("TEST", obOracle.getSchema());
+    }
+
+    @Test
+    public void getSchemaDefaultsToUppercaseUsernameBeforeTenantAndCluster() {
+        ObOracle obOracle = new ObOracle();
+        obOracle.setUsername("test@obora#obdemo");
+
+        assertEquals("TEST", obOracle.getSchema());
+    }
+
+    @Test
+    public void getSchemaKeepsExplicitSchema() {
+        ObOracle obOracle = new ObOracle();
+        obOracle.setUsername("test@obora");
+        obOracle.setSchema("CUSTOM_SCHEMA");
+
+        assertEquals("CUSTOM_SCHEMA", obOracle.getSchema());
+    }
+
+    @Test
     public void getJdbcRejectsNonOceanBaseJdbcUrl() {
         ObOracle obOracle = new ObOracle();
         obOracle.setUrlType("jdbcUrl");

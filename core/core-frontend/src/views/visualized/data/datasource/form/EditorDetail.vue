@@ -298,7 +298,7 @@ const setRules = () => {
     ],
     'configuration.dataBase': [
       {
-        required: true,
+        required: form.value.type !== 'obOracle',
         message: t('datasource.please_input_data_base'),
         trigger: 'blur'
       }
@@ -379,7 +379,7 @@ const setRules = () => {
     'configuration.sshPassword': [{ validator: validateSshPassword, trigger: 'blur' }],
     'configuration.sshKey': [{ validator: validateSshkey, trigger: 'blur' }]
   }
-  if (['oracle', 'obOracle', 'sqlServer', 'pg', 'redshift', 'db2'].includes(form.value.type)) {
+  if (['oracle', 'sqlServer', 'pg', 'redshift', 'db2'].includes(form.value.type)) {
     configRules['configuration.schema'] = [
       {
         required: true,
@@ -1195,10 +1195,12 @@ defineExpose({
           <el-form-item
             v-if="['oracle', 'obOracle', 'sqlServer', 'pg', 'redshift', 'db2'].includes(form.type)"
             class="schema-label"
-            :prop="showSchema ? '' : 'configuration.schema'"
+            :prop="showSchema || form.type === 'obOracle' ? '' : 'configuration.schema'"
           >
             <template v-slot:label>
-              <span class="name">{{ t('datasource.schema') }}<i class="required" /></span>
+              <span class="name"
+                >{{ t('datasource.schema') }}<i v-if="form.type !== 'obOracle'" class="required"
+              /></span>
               <el-button text size="small" @click="getDsSchema()">
                 <template #icon>
                   <Icon name="icon_add_outlined">

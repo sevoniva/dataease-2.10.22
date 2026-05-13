@@ -10,6 +10,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 @Data
 @Component("obOracle")
@@ -31,15 +32,38 @@ public class ObOracle extends DatasourceConfiguration {
             return getJdbcUrl();
         }
 
+        String database = StringUtils.defaultString(getDataBase()).trim();
         String jdbcUrl = "jdbc:oceanbase://HOSTNAME:PORT/DATABASE"
                 .replace("HOSTNAME", getLHost().trim())
                 .replace("PORT", getLPort().toString().trim())
-                .replace("DATABASE", getDataBase().trim());
+                .replace("DATABASE", database);
         if (StringUtils.isNotBlank(getExtraParams())) {
             jdbcUrl = jdbcUrl + "?" + getExtraParams().trim();
         }
         validateIllegalParameters(jdbcUrl);
         return jdbcUrl;
+    }
+
+    @Override
+    public String getSchema() {
+        String schema = super.getSchema();
+        if (StringUtils.isNotBlank(schema)) {
+            return schema.trim();
+        }
+        String username = StringUtils.defaultString(getUsername()).trim();
+        if (StringUtils.isBlank(username)) {
+            return schema;
+        }
+        int atIndex = username.indexOf("@");
+        int clusterIndex = username.indexOf("#");
+        int endIndex = username.length();
+        if (atIndex >= 0) {
+            endIndex = Math.min(endIndex, atIndex);
+        }
+        if (clusterIndex >= 0) {
+            endIndex = Math.min(endIndex, clusterIndex);
+        }
+        return username.substring(0, endIndex).toUpperCase(Locale.ROOT);
     }
 
     private void validateIllegalParameters(String value) {
