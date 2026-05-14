@@ -2,7 +2,7 @@ version: "3"
 
 services:
   apisix-dashboard:
-    image: registry.cn-qingdao.aliyuncs.com/dataease/apisix-dashboard:3.0.1-alpine
+    image: ghcr.io/sevoniva/dataease-2.10.22-apisix-dashboard:3.0.1-alpine
     container_name: apisix-dashboard
     restart: always
     volumes:
@@ -13,7 +13,7 @@ services:
       dataease-network:
 
   apisix:
-    image: registry.cn-qingdao.aliyuncs.com/dataease/apisix:3.14.1-debian
+    image: ghcr.io/sevoniva/dataease-2.10.22-apisix:3.14.1-debian
     container_name: apisix
     environment:
       - TZ=Asia/Shanghai
@@ -32,7 +32,7 @@ services:
       dataease-network:
 
   etcd:
-    image: registry.cn-qingdao.aliyuncs.com/dataease/etcd:3.5.10
+    image: ghcr.io/sevoniva/dataease-2.10.22-etcd:3.5.10
     container_name: apisix-etcd
     restart: always
     volumes:

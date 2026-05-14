@@ -1,4 +1,4 @@
-FROM registry.cn-qingdao.aliyuncs.com/dataease/alpine-openjdk21-jre
+FROM ghcr.io/sevoniva/dataease-2.10.22-openjdk21-jre:latest
 STOPSIGNAL SIGTERM
 RUN mkdir -p /opt/apps/config \
     /opt/dataease2.0/drivers/ \

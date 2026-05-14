@@ -6,7 +6,7 @@
     "dev:win": "set NODE_OPTIONS=--max_old_space_size=4096 && vite --mode dev --host 0.0.0.0",
     "dev": "NODE_OPTIONS=--max_old_space_size=4096 vite --mode dev --host 0.0.0.0",
     "dev:fast": "DE_SKIP_VITE_LINT=true NODE_OPTIONS=--max_old_space_size=4096 vite --mode dev --host 0.0.0.0",
-    "build:flush": "cd ./flushbonading && rimraf ./demo.html && npm i && node ./index.js",
+    "build:flush": "cd ./flushbonading && rimraf ./demo.html && npm ci && node ./index.js",
     "ts:check": "vue-tsc --noEmit",
     "build:base": "NODE_OPTIONS=--max_old_space_size=4096 vite build --mode base && npm run build:flush",
     "build:distributed": "NODE_OPTIONS=--max_old_space_size=5020 vite build --mode distributed && npm run build:flush",

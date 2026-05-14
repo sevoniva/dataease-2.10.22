@@ -109,7 +109,7 @@ function _healthcheck() {
    echo
 }
 function _get_current_version() {
-   de_current_version=$(grep "^    image:.*dataease:" ${DE_RUNNING_BASE}/docker-compose.yml | awk -F'dataease:' '{print $2}')
+   de_current_version=$(grep "^    image:.*dataease" ${DE_RUNNING_BASE}/docker-compose.yml | awk -F'image: ' '{print $2}' | sed 's/^.*://')
    if test -z $de_current_version; then
       echo "获取当前版本失败，请检查当前版本是否正确"
       exit 1
@@ -299,8 +299,9 @@ function clear_images() {
    for f in $DE_RUNNING_BASE/*.yml; do
       [[ -e "$f" ]] || break
       grep "^    image:.*:" "$f" | uniq | while read -r component_image_defined; do
-         component_version=$(echo ${component_image_defined} | awk -F":" '{print $3}' | uniq)
-         component_image=$(echo ${component_image_defined} | awk -F'image: ' '{print $2}' | awk -F':' '{print $1}')
+         component_ref=$(echo ${component_image_defined} | awk -F'image: ' '{print $2}')
+         component_version=${component_ref##*:}
+         component_image=${component_ref%:*}
 
          if [[ $(docker images | grep "$component_image[[:space:]]" | grep -v " $component_version " | wc -l) == 0 ]]; then
             echo "$component_image 不存在旧版本镜像"

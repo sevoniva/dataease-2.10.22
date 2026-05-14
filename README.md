@@ -56,6 +56,19 @@
 
 驱动使用 OceanBase 官方 Connector/J，类名为 `com.oceanbase.jdbc.Driver`。实际兼容范围以 OceanBase 官方 Connector/J 文档和目标 OceanBase 集群版本为准。
 
+## 镜像发布说明
+
+本 fork 的部署镜像统一发布到 GitHub Container Registry (GHCR)，安装模板中的 DataEase、MySQL、APISIX、ETCD、Playwright API 和同步任务镜像均已改为 `ghcr.io/sevoniva/dataease-2.10.22*` 命名空间，避免部署时依赖原项目的镜像仓库。
+
+仓库内提供两个手动触发的 GitHub Actions：
+
+-   `Mirror Runtime Images to GHCR`：将运行依赖镜像同步到 GHCR；
+-   `Build DataEase Image to GHCR`：构建并发布本 fork 的 DataEase 主镜像。
+
+如需在未登录 GitHub 的环境直接拉取镜像，请在 GHCR 中将对应 package 设置为 public；如保持 private，则目标服务器需要先执行 `docker login ghcr.io`。
+
+前端依赖保留 npm 公网生态，`core/core-frontend/.npmrc` 使用 `registry.npmmirror.com`，并跟踪 `package-lock.json` 以保证构建依赖可复现。Maven 依赖保留原项目公开仓库配置。
+
 ## 什么是 DataEase？
 
 DataEase 是开源的 BI 工具，帮助用户快速分析数据并洞察业务趋势，从而实现业务的改进与优化。DataEase 支持丰富的数据源连接，能够通过拖拉拽方式快速制作图表，并可以方便的与他人分享。
