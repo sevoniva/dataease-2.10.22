@@ -1,10 +1,12 @@
 name: Build and Publish Docker Images
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: DataEase image tag to publish
+        required: false
+        default: v2.10.22-ob
 
 permissions:
   contents: read
@@ -15,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  IMAGE_TAG: v2.10.22-ob
+  IMAGE_TAG: ${{ inputs.image_tag || 'v2.10.22-ob' }}
   SOURCE_DATAEASE_TAG: v2.10.22
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/sevoniva/dataease-2.10.22

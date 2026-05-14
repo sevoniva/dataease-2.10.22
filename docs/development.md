@@ -56,6 +56,12 @@ Build the Docker image locally after backend packaging:
 docker build -t dataease-2.10.22-ob:local .
 ```
 
+Publish GHCR images manually from GitHub Actions:
+
+1. Open `Actions` in GitHub.
+2. Select `Build and Publish Docker Images`.
+3. Run the workflow and optionally override `image_tag`.
+
 ## OceanBase Oracle Notes
 
 The fork adds datasource type `obOracle` using `com.oceanbase.jdbc.Driver`.

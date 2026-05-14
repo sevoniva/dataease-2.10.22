@@ -62,7 +62,7 @@
 
 本 fork 的部署镜像统一发布到 GitHub Container Registry (GHCR)，安装模板中的 DataEase、MySQL、APISIX、ETCD、Playwright API 和同步任务镜像均已改为 `ghcr.io/sevoniva/dataease-2.10.22*` 命名空间，避免部署时依赖原项目的镜像仓库。
 
-仓库内提供自动发布 GitHub Actions：提交到 `main` 分支后会自动同步运行依赖镜像、构建前后端、打包 DataEase 主镜像并推送到 GHCR。主镜像默认发布为 `ghcr.io/sevoniva/dataease-2.10.22:v2.10.22-ob`，同时发布 `main` 和 `sha-<commit>` 标签。
+仓库内提供手动发布 GitHub Actions：进入 GitHub Actions 页面运行 `Build and Publish Docker Images` workflow 后，会同步运行依赖镜像、构建前后端、打包 DataEase 主镜像并推送到 GHCR。主镜像默认发布为 `ghcr.io/sevoniva/dataease-2.10.22:v2.10.22-ob`，同时发布 `main` 和 `sha-<commit>` 标签；手动运行时可通过 `image_tag` 输入覆盖默认主镜像标签。
 
 如需在未登录 GitHub 的环境直接拉取镜像，请在 GHCR 中将对应 package 设置为 public；如保持 private，则目标服务器需要先执行 `docker login ghcr.io`。
 
