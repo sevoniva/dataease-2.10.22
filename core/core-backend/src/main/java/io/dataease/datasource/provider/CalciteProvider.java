@@ -387,6 +387,10 @@ public class CalciteProvider extends Provider {
                         datasetTableFields.add(tableFieldDesc);
                     }
                 }
+                if (isObOracle(datasourceRequest.getDatasource().getType())) {
+                    DatasourceConfiguration configuration = parseOracleLikeConfiguration(datasourceRequest.getDatasource().getConfiguration(), datasourceRequest.getDatasource().getType());
+                    applyOracleColumnComments(datasetTableFields, getOracleColumnComments(con, configuration.getSchema(), table));
+                }
             } catch (Exception e) {
                 DEException.throwException(e.getMessage());
             } finally {
@@ -938,6 +942,40 @@ public class CalciteProvider extends Provider {
             default:
                 break;
         }
+    }
+
+    static void applyOracleColumnComments(List<TableField> fields, Map<String, String> columnComments) {
+        if (CollectionUtils.isEmpty(fields) || columnComments == null || columnComments.isEmpty()) {
+            return;
+        }
+        for (TableField field : fields) {
+            String comments = columnComments.get(normalizeOracleName(field.getOriginName()));
+            if (StringUtils.isNotBlank(comments)) {
+                field.setName(comments.trim());
+            }
+        }
+    }
+
+    private Map<String, String> getOracleColumnComments(Connection connection, String schema, String table) throws SQLException {
+        Map<String, String> comments = new HashMap<>();
+        if (StringUtils.isBlank(schema) || StringUtils.isBlank(table)) {
+            return comments;
+        }
+        String sql = "select column_name, comments from all_col_comments where owner = ? and table_name = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, normalizeOracleName(schema));
+            statement.setString(2, normalizeOracleName(table));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    comments.put(normalizeOracleName(resultSet.getString("column_name")), resultSet.getString("comments"));
+                }
+            }
+        }
+        return comments;
+    }
+
+    private static String normalizeOracleName(String name) {
+        return StringUtils.trimToEmpty(name).toUpperCase(Locale.ROOT);
     }
 
     private TableField getTableFieldDesc(DatasourceRequest datasourceRequest, ResultSet resultSet, int commentIndex, Map<String, Integer> tableTypeMap) throws SQLException {
