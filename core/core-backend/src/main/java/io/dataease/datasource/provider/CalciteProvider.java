@@ -88,6 +88,13 @@ public class CalciteProvider extends Provider {
         return JsonUtil.parseObject(configuration, Oracle.class);
     }
 
+    private DatasourceConfiguration parseDatasourceConfiguration(String configuration, String type) {
+        if (isOracleLike(type)) {
+            return parseOracleLikeConfiguration(configuration, type);
+        }
+        return JsonUtil.parseObject(configuration, DatasourceConfiguration.class);
+    }
+
     @PostConstruct
     public void init() throws Exception {
         try {
@@ -333,7 +340,7 @@ public class CalciteProvider extends Provider {
         DatasourceSchemaDTO datasourceSchemaDTO = datasourceRequest.getDsList().entrySet().iterator().next().getValue();
         datasourceRequest.setDatasource(datasourceSchemaDTO);
 
-        DatasourceConfiguration datasourceConfiguration = JsonUtil.parseObject(datasourceRequest.getDatasource().getConfiguration(), DatasourceConfiguration.class);
+        DatasourceConfiguration datasourceConfiguration = parseDatasourceConfiguration(datasourceRequest.getDatasource().getConfiguration(), datasourceSchemaDTO.getType());
 
         String table = datasourceRequest.getTable();
         if (StringUtils.isEmpty(table)) {
@@ -513,7 +520,7 @@ public class CalciteProvider extends Provider {
         DatasourceSchemaDTO value = datasourceRequest.getDsList().entrySet().iterator().next().getValue();
         datasourceRequest.setDatasource(value);
 
-        DatasourceConfiguration datasourceConfiguration = JsonUtil.parseObject(datasourceRequest.getDatasource().getConfiguration(), DatasourceConfiguration.class);
+        DatasourceConfiguration datasourceConfiguration = parseDatasourceConfiguration(datasourceRequest.getDatasource().getConfiguration(), value.getType());
 
         Map<String, Object> map = new LinkedHashMap<>();
         List<TableField> fieldList = new ArrayList<>();
@@ -582,7 +589,7 @@ public class CalciteProvider extends Provider {
     public void exec(DatasourceRequest datasourceRequest) throws DEException {
         DatasourceSchemaDTO value = datasourceRequest.getDsList().entrySet().iterator().next().getValue();
         datasourceRequest.setDatasource(value);
-        DatasourceConfiguration datasourceConfiguration = JsonUtil.parseObject(datasourceRequest.getDatasource().getConfiguration(), DatasourceConfiguration.class);
+        DatasourceConfiguration datasourceConfiguration = parseDatasourceConfiguration(datasourceRequest.getDatasource().getConfiguration(), value.getType());
         // schema
         ResultSet resultSet = null;
         String oracleCharset = normalizeOracleCharset(datasourceConfiguration.getCharset());
@@ -643,7 +650,9 @@ public class CalciteProvider extends Provider {
         Statement statement;
         if (isOracleLike(value.getType())) {
             statement = getStatement(con, datasourceConfiguration.getQueryTimeout());
-            statement.executeUpdate("ALTER SESSION SET CURRENT_SCHEMA = " + datasourceConfiguration.getSchema());
+            if (StringUtils.isNotBlank(datasourceConfiguration.getSchema())) {
+                statement.executeUpdate("ALTER SESSION SET CURRENT_SCHEMA = " + datasourceConfiguration.getSchema());
+            }
             statement.executeUpdate("ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS'");
             //调整字符集
             String oracleCharset = normalizeOracleCharset(datasourceConfiguration.getCharset());
@@ -660,7 +669,7 @@ public class CalciteProvider extends Provider {
     public ExecuteResult executeUpdate(DatasourceRequest datasourceRequest, String autoIncrementPkName) throws DEException {
         DatasourceSchemaDTO value = datasourceRequest.getDsList().entrySet().iterator().next().getValue();
         datasourceRequest.setDatasource(value);
-        DatasourceConfiguration datasourceConfiguration = JsonUtil.parseObject(datasourceRequest.getDatasource().getConfiguration(), DatasourceConfiguration.class);
+        DatasourceConfiguration datasourceConfiguration = parseDatasourceConfiguration(datasourceRequest.getDatasource().getConfiguration(), value.getType());
         // schema
         ResultSet resultSet = null;
         String oracleCharset = normalizeOracleCharset(datasourceConfiguration.getCharset());
@@ -755,7 +764,7 @@ public class CalciteProvider extends Provider {
         String targetCharset = null;
         String originCharset = null;
         if (datasourceRequest != null && isOracleLike(datasourceRequest.getDatasource().getType())) {
-            DatasourceConfiguration jdbcConfiguration = JsonUtil.parseObject(datasourceRequest.getDatasource().getConfiguration(), DatasourceConfiguration.class);
+            DatasourceConfiguration jdbcConfiguration = parseDatasourceConfiguration(datasourceRequest.getDatasource().getConfiguration(), datasourceRequest.getDatasource().getType());
 
             if (StringUtils.isNotEmpty(jdbcConfiguration.getCharset())) {
                 originCharset = normalizeOracleCharset(jdbcConfiguration.getCharset());
@@ -1761,7 +1770,7 @@ public class CalciteProvider extends Provider {
             if (rootSchema.getSubSchema(datasourceSchemaDTO.getSchemaAlias()) == null) {
                 buildSchema(datasourceRequest, calciteConnection);
             }
-            DatasourceConfiguration configuration = JsonUtil.parseObject(datasourceDTO.getConfiguration(), DatasourceConfiguration.class);
+            DatasourceConfiguration configuration = parseDatasourceConfiguration(datasourceDTO.getConfiguration(), datasourceDTO.getType());
             if (configuration.isUseSSH()) {
                 Session session = Provider.getSessions().get(datasourceDTO.getId());
                 session.disconnect();

@@ -10,6 +10,7 @@ import io.dataease.dataset.manage.DatasetGroupManage;
 import io.dataease.dataset.manage.DatasetSQLManage;
 import io.dataease.dataset.manage.DatasetTableFieldManage;
 import io.dataease.dataset.manage.PermissionManage;
+import io.dataease.dataset.sync.DatasetSyncQueryManage;
 import io.dataease.dataset.utils.DatasetUtils;
 import io.dataease.engine.sql.SQLProvider;
 import io.dataease.engine.trans.*;
@@ -57,6 +58,8 @@ public class ChartDataManage {
     private DatasetGroupManage datasetGroupManage;
     @Resource
     private DatasetSQLManage datasetSQLManage;
+    @Resource
+    private DatasetSyncQueryManage datasetSyncQueryManage;
     @Resource
     private ChartViewManege chartViewManege;
     @Resource
@@ -372,6 +375,7 @@ public class ChartDataManage {
         chartFilterTreeService.searchFieldAndSet(fieldCustomFilter);
         // 获取dsMap,union sql
         Map<String, Object> sqlMap = datasetSQLManage.getUnionSQLForEdit(table, chartExtRequest);
+        sqlMap = datasetSyncQueryManage.routeIfSynced(table, sqlMap);
         String sql = (String) sqlMap.get("sql");
         Map<Long, DatasourceSchemaDTO> dsMap = (Map<Long, DatasourceSchemaDTO>) sqlMap.get("dsMap");
         boolean crossDs = table.getIsCross();
@@ -711,6 +715,7 @@ public class ChartDataManage {
 
         // 获取dsMap,union sql
         Map<String, Object> sqlMap = datasetSQLManage.getUnionSQLForEdit(table, null, null, false);
+        sqlMap = datasetSyncQueryManage.routeIfSynced(table, sqlMap);
         String sql = (String) sqlMap.get("sql");
         Map<Long, DatasourceSchemaDTO> dsMap = (Map<Long, DatasourceSchemaDTO>) sqlMap.get("dsMap");
         List<String> dsList = new ArrayList<>();
@@ -739,7 +744,7 @@ public class ChartDataManage {
 
         String querySql = null;
         //如果不是插件图表 走原生逻辑
-        if (table.getMode() == 0) {// 直连
+        if (table.getMode() == 0 || table.getMode() == 1) {// 直连或同步缓存
             if (ObjectUtils.isEmpty(dsMap)) {
                 DEException.throwException(Translator.get("i18n_datasource_delete"));
             }

@@ -62,9 +62,13 @@ import {
   getPreviewData,
   getDatasetDetails,
   saveDatasetTree,
-  barInfoApi
+  barInfoApi,
+  getDatasetSyncTask,
+  saveDatasetSyncTask,
+  executeDatasetSync,
+  stopDatasetSync
 } from '@/api/dataset'
-import type { Table } from '@/api/dataset'
+import type { DatasetSyncTask, Table } from '@/api/dataset'
 import DatasetUnion from './DatasetUnion.vue'
 import { cloneDeep, debounce } from 'lodash-es'
 import { XpackComponent } from '@/components/plugin'
@@ -122,7 +126,18 @@ const currentField = ref({
   idArr: []
 })
 const isCross = ref(false)
+const syncMode = ref(0)
 let isUpdate = false
+let pendingSyncSave: Promise<void> | null = null
+
+const defaultSyncTask = (): DatasetSyncTask => ({
+  updateType: 'all_scope',
+  syncRate: 'RIGHTNOW',
+  simpleCronValue: 30,
+  simpleCronType: 'minute',
+  cron: '0 0/30 * * * ? *'
+})
+const syncTask = reactive<DatasetSyncTask>(defaultSyncTask())
 
 const fieldTypes = index => {
   return [
@@ -214,6 +229,7 @@ let nodeInfo = {
   pid: '',
   name: ''
 }
+const currentDatasetId = ref('')
 
 const defaultProps = {
   children: 'children',
@@ -361,6 +377,9 @@ watch(searchTable, val => {
   )
 })
 const editeSave = () => {
+  if (!validateSyncSetting()) {
+    return
+  }
   const union = []
   loading.value = true
   dfsNodeList(union, datasetDrag.value.getNodeList())
@@ -369,9 +388,11 @@ const editeSave = () => {
     name: datasetName.value,
     union,
     isCross: isCross.value,
+    mode: datasetMode.value,
     allFields: allfields.value,
     nodeType: 'dataset'
   })
+    .then(() => persistDatasetSync(nodeInfo.id))
     .then(() => {
       isUpdate = false
       ElMessage.success(t('data_set.saved_successfully'))
@@ -744,9 +765,16 @@ const initEdite = async () => {
     if (copyId) {
       nodeInfo.id = ''
     }
+    currentDatasetId.value = nodeInfo.id || ''
     datasetName.value = nodeInfo.name
     allfields.value = res.allFields || []
     isCross.value = res.isCross || false
+    syncMode.value = copyId ? 0 : res.mode || 0
+    if (!copyId && res.id) {
+      await loadDatasetSyncTask(res.id)
+    } else {
+      Object.assign(syncTask, defaultSyncTask())
+    }
     dfsUnion(arr, res.union || [])
     const [fir] = res.union as { currentDs: { datasourceId: string } }[]
     dataSource.value = fir?.currentDs?.datasourceId
@@ -851,6 +879,103 @@ const allfields = ref([])
 
 provide('allfields', allfields)
 provide('isCross', isCross)
+
+const findDatasource = (list, id) => {
+  for (const item of list || []) {
+    if (`${item.id}` === `${id}`) {
+      return item
+    }
+    const child = findDatasource(item.children, id)
+    if (child) {
+      return child
+    }
+  }
+}
+
+const currentDatasource = computed(() => findDatasource(state.dataSourceList, dataSource.value))
+const obOracleDataset = computed(
+  () => !!dataSource.value && !isCross.value && currentDatasource.value?.type === 'obOracle'
+)
+const datasetMode = computed(() => (obOracleDataset.value && syncMode.value === 1 ? 1 : 0))
+const incrementalFieldOptions = computed(() =>
+  allfields.value.filter(ele => ele.extField === 0 && ele.checked !== false)
+)
+
+const refreshSimpleCron = () => {
+  const value = Number(syncTask.simpleCronValue || 30)
+  if (syncTask.simpleCronType === 'hour') {
+    syncTask.simpleCronValue = Math.min(Math.max(value, 1), 23)
+    syncTask.cron = `0 0 0/${syncTask.simpleCronValue} * * ? *`
+    return
+  }
+  if (syncTask.simpleCronType === 'day') {
+    syncTask.simpleCronValue = Math.min(Math.max(value, 1), 31)
+    syncTask.cron = `0 0 0 1/${syncTask.simpleCronValue} * ? *`
+    return
+  }
+  syncTask.simpleCronValue = Math.min(Math.max(value, 1), 59)
+  syncTask.cron = `0 0/${syncTask.simpleCronValue} * * * ? *`
+}
+
+const syncRateChange = () => {
+  if (syncTask.syncRate === 'SIMPLE_CRON') {
+    refreshSimpleCron()
+  }
+  if (syncTask.syncRate === 'RIGHTNOW') {
+    syncTask.cron = ''
+  }
+}
+
+const validateSyncSetting = () => {
+  if (datasetMode.value !== 1) {
+    return true
+  }
+  if (syncTask.updateType === 'add_scope' && !syncTask.incrementalFieldId) {
+    ElMessage.error('请选择增量字段')
+    return false
+  }
+  return true
+}
+
+const loadDatasetSyncTask = async id => {
+  Object.assign(syncTask, defaultSyncTask())
+  const task = await getDatasetSyncTask(id)
+  if (task) {
+    Object.assign(syncTask, task)
+  }
+}
+
+const persistDatasetSync = async id => {
+  if (!id) {
+    return
+  }
+  if (datasetMode.value !== 1) {
+    await stopDatasetSync(id)
+    return
+  }
+  if (!validateSyncSetting()) {
+    throw new Error('invalid sync setting')
+  }
+  if (syncTask.syncRate === 'SIMPLE_CRON') {
+    refreshSimpleCron()
+  }
+  await saveDatasetSyncTask({
+    ...toRaw(syncTask),
+    datasetGroupId: id,
+    name: datasetName.value,
+    incrementalFieldId: syncTask.updateType === 'add_scope' ? syncTask.incrementalFieldId : null
+  })
+}
+
+const executeDatasetSyncNow = async () => {
+  if (!currentDatasetId.value) {
+    ElMessage.warning('请先保存数据集')
+    return
+  }
+  await persistDatasetSync(currentDatasetId.value)
+  await executeDatasetSync(currentDatasetId.value)
+  ElMessage.success('同步完成')
+}
 
 const expandedD = ref(true)
 const expandedQ = ref(true)
@@ -1332,8 +1457,12 @@ const handleResize = debounce(() => {
   dragHeight.value = clientHeight - sqlResultHeight.value - 56
 }, 60)
 let willBack = false
-const saveAndBack = () => {
+const saveAndBack = async () => {
   if (!willBack) return
+  if (pendingSyncSave) {
+    await pendingSyncSave
+    pendingSyncSave = null
+  }
   pushDataset()
 }
 
@@ -1411,6 +1540,9 @@ const resetAllfieldsUnionId = (arr, idMap) => {
 }
 
 const datasetSave = () => {
+  if (!validateSyncSetting()) {
+    return
+  }
   if (nodeInfo.id) {
     editeSave()
     return
@@ -1428,7 +1560,13 @@ const datasetSave = () => {
 
   creatDsFolder.value.createInit(
     'dataset',
-    { id: pid || '0', union, allfields: allfields.value, isCross: isCross.value },
+    {
+      id: pid || '0',
+      union,
+      allfields: allfields.value,
+      isCross: isCross.value,
+      mode: datasetMode.value
+    },
     '',
     datasetName.value
   )
@@ -1662,7 +1800,11 @@ const finish = res => {
     pid,
     name
   }
+  currentDatasetId.value = id
   allfields.value = res.allFields || []
+  pendingSyncSave = persistDatasetSync(id).catch(e => {
+    ElMessage.error(e?.message || '同步设置保存失败')
+  })
 }
 
 const errorTips = ref('')
@@ -1815,6 +1957,76 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
               </div>
             </template>
           </el-tree-select>
+          <div v-if="obOracleDataset" class="dataset-sync-setting">
+            <div class="sync-row">
+              <span>连接模式</span>
+              <el-radio-group v-model="syncMode">
+                <el-radio :value="0">直连</el-radio>
+                <el-radio :value="1">同步</el-radio>
+              </el-radio-group>
+            </div>
+            <template v-if="syncMode === 1">
+              <div class="sync-row">
+                <span>同步方式</span>
+                <el-radio-group v-model="syncTask.updateType">
+                  <el-radio value="all_scope">全量</el-radio>
+                  <el-radio value="add_scope">增量</el-radio>
+                </el-radio-group>
+              </div>
+              <el-select
+                v-if="syncTask.updateType === 'add_scope'"
+                v-model="syncTask.incrementalFieldId"
+                class="sync-control"
+                placeholder="选择增量字段"
+              >
+                <el-option
+                  v-for="field in incrementalFieldOptions"
+                  :key="field.id"
+                  :label="field.name"
+                  :value="field.id"
+                />
+              </el-select>
+              <div class="sync-row">
+                <span>频率</span>
+                <el-radio-group v-model="syncTask.syncRate" @change="syncRateChange">
+                  <el-radio value="RIGHTNOW">手动</el-radio>
+                  <el-radio value="SIMPLE_CRON">周期</el-radio>
+                  <el-radio value="CRON">Cron</el-radio>
+                </el-radio-group>
+              </div>
+              <div v-if="syncTask.syncRate === 'SIMPLE_CRON'" class="sync-cron">
+                <el-input-number
+                  v-model="syncTask.simpleCronValue"
+                  :min="1"
+                  controls-position="right"
+                  @change="refreshSimpleCron"
+                />
+                <el-select
+                  v-model="syncTask.simpleCronType"
+                  class="sync-unit"
+                  @change="refreshSimpleCron"
+                >
+                  <el-option label="分钟" value="minute" />
+                  <el-option label="小时" value="hour" />
+                  <el-option label="天" value="day" />
+                </el-select>
+              </div>
+              <el-input
+                v-if="syncTask.syncRate === 'CRON'"
+                v-model="syncTask.cron"
+                class="sync-control"
+                placeholder="Cron 表达式"
+              />
+              <el-button
+                class="sync-now"
+                secondary
+                :disabled="!currentDatasetId"
+                @click="executeDatasetSyncNow"
+              >
+                立即同步
+              </el-button>
+            </template>
+          </div>
           <p class="select-ds table-num">
             {{ t('datasource.data_table') }}
             <span class="num">
@@ -2998,12 +3210,16 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
     }
 
     .table-list {
+      display: flex;
+      flex-direction: column;
+
       .list-item_primary {
         padding: 8px;
       }
       .table-list-top {
         padding: 16px;
         padding-bottom: 0;
+        flex: 0 0 auto;
       }
 
       height: 100%;
@@ -3079,8 +3295,51 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
         width: 100%;
       }
 
+      .dataset-sync-setting {
+        padding: 10px 0 14px;
+        margin-bottom: 12px;
+        border-top: 1px solid #dee0e3;
+        border-bottom: 1px solid #dee0e3;
+
+        .sync-row {
+          min-height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          font-size: 13px;
+          color: #1f2329;
+
+          span {
+            flex: 0 0 auto;
+            color: #646a73;
+          }
+        }
+
+        .sync-control,
+        .sync-now {
+          width: 100%;
+          margin-top: 8px;
+        }
+
+        .sync-cron {
+          display: flex;
+          gap: 8px;
+          margin-top: 8px;
+
+          .ed-input-number {
+            width: 92px;
+          }
+
+          .sync-unit {
+            flex: 1;
+          }
+        }
+      }
+
       .table-checkbox-list {
-        height: calc(100% - 190px);
+        flex: 1;
+        min-height: 0;
         overflow-y: auto;
         padding: 0 8px;
 

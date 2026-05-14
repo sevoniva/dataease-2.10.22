@@ -27,6 +27,7 @@ export interface Tree {
   level: number
   leaf?: boolean
   pid: string | number
+  mode?: number
   union?: Array<{}>
   createTime: number
   allfields?: Array<{}>
@@ -49,6 +50,7 @@ const filterText = ref('')
 let union = []
 let allfields = []
 let isCross = false
+let mode = 0
 const datasetForm = reactive({
   pid: '',
   name: ''
@@ -159,6 +161,7 @@ const createInit = (type, data: Tree, exec, name: string) => {
     union = data.union
     allfields = data.allfields
     isCross = data.isCross
+    mode = data.mode || 0
   }
   if (data.id) {
     const request = { leaf: false, weight: 7 } as BusiTreeRequest
@@ -268,6 +271,7 @@ const saveDataset = () => {
         params.union = union
         params.allFields = allfields
         params.isCross = isCross
+        params.mode = mode
       }
       if (cmd.value === 'move' && !checkPid(params.pid)) {
         return

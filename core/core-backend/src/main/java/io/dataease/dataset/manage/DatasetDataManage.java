@@ -14,6 +14,7 @@ import io.dataease.commons.utils.SqlparserUtils;
 import io.dataease.constant.AuthEnum;
 import io.dataease.constant.SQLConstants;
 import io.dataease.dataset.constant.DatasetTableType;
+import io.dataease.dataset.sync.DatasetSyncQueryManage;
 import io.dataease.dataset.utils.DatasetUtils;
 import io.dataease.dataset.utils.FieldUtils;
 import io.dataease.dataset.utils.SqlUtils;
@@ -69,6 +70,8 @@ import static io.dataease.dataset.utils.TableUtils.format;
 public class DatasetDataManage {
     @Resource
     private DatasetSQLManage datasetSQLManage;
+    @Resource
+    private DatasetSyncQueryManage datasetSyncQueryManage;
     @Resource
     private CoreDatasourceMapper coreDatasourceMapper;
     @Resource
@@ -221,6 +224,9 @@ public class DatasetDataManage {
         }
 
         Map<String, Object> sqlMap = datasetSQLManage.getUnionSQLForEdit(datasetGroupInfoDTO, null);
+        if (checkPermission || encode) {
+            sqlMap = datasetSyncQueryManage.routeIfSynced(datasetGroupInfoDTO, sqlMap);
+        }
         String sql = (String) sqlMap.get("sql");
 
         Map<String, ColumnPermissionItem> desensitizationList = new HashMap<>();
@@ -310,6 +316,7 @@ public class DatasetDataManage {
         try {
             DatasetGroupInfoDTO datasetGroupInfoDTO = datasetGroupManage.getForCount(datasetGroupId);
             Map<String, Object> sqlMap = datasetSQLManage.getUnionSQLForEdit(datasetGroupInfoDTO, null);
+            sqlMap = datasetSyncQueryManage.routeIfSynced(datasetGroupInfoDTO, sqlMap);
             String sql = (String) sqlMap.get("sql");
 
             // 获取allFields
@@ -362,6 +369,7 @@ public class DatasetDataManage {
 
     public Long getDatasetTotal(DatasetGroupInfoDTO datasetGroupInfoDTO, String s, ChartExtRequest request) throws Exception {
         Map<String, Object> sqlMap = datasetSQLManage.getUnionSQLForEdit(datasetGroupInfoDTO, request);
+        sqlMap = datasetSyncQueryManage.routeIfSynced(datasetGroupInfoDTO, sqlMap);
         Map<Long, DatasourceSchemaDTO> dsMap = (Map<Long, DatasourceSchemaDTO>) sqlMap.get("dsMap");
         boolean crossDs = datasetGroupInfoDTO.getIsCross();
         String sql;
@@ -598,6 +606,7 @@ public class DatasetDataManage {
         List<DatasetTableFieldDTO> allFields = new ArrayList<>();
 
         Map<String, Object> sqlMap = datasetSQLManage.getUnionSQLForEdit(datasetGroupInfoDTO, new ChartExtRequest());
+        sqlMap = datasetSyncQueryManage.routeIfSynced(datasetGroupInfoDTO, sqlMap);
         String sql = (String) sqlMap.get("sql");
 
         allFields.addAll(datasetGroupInfoDTO.getAllFields());
@@ -709,6 +718,7 @@ public class DatasetDataManage {
             DatasetGroupInfoDTO datasetGroupInfoDTO = datasetGroupManage.getDatasetGroupInfoDTO(datasetGroupId, null);
 
             Map<String, Object> sqlMap = datasetSQLManage.getUnionSQLForEdit(datasetGroupInfoDTO, new ChartExtRequest());
+            sqlMap = datasetSyncQueryManage.routeIfSynced(datasetGroupInfoDTO, sqlMap);
             String sql = (String) sqlMap.get("sql");
 
             allFields.addAll(datasetGroupInfoDTO.getAllFields());
@@ -876,6 +886,7 @@ public class DatasetDataManage {
             datasetGroupInfoDTO = datasetGroupManage.getDatasetGroupInfoDTO(datasetGroupId, null);
 
             sqlMap = datasetSQLManage.getUnionSQLForEdit(datasetGroupInfoDTO, new ChartExtRequest());
+            sqlMap = datasetSyncQueryManage.routeIfSynced(datasetGroupInfoDTO, sqlMap);
             String sql = (String) sqlMap.get("sql");
 
             allFields.addAll(datasetGroupInfoDTO.getAllFields());
@@ -1107,6 +1118,7 @@ public class DatasetDataManage {
         DatasetGroupInfoDTO datasetGroupInfoDTO = datasetGroupManage.getDatasetGroupInfoDTO(datasetGroupId, null);
 
         Map<String, Object> sqlMap = datasetSQLManage.getUnionSQLForEdit(datasetGroupInfoDTO, new ChartExtRequest());
+        sqlMap = datasetSyncQueryManage.routeIfSynced(datasetGroupInfoDTO, sqlMap);
         String sql = (String) sqlMap.get("sql");
 
         allFields.addAll(datasetGroupInfoDTO.getAllFields());
