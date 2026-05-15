@@ -1,6 +1,8 @@
 package io.dataease.listener;
 
 import io.dataease.datasource.dao.auto.entity.CoreDatasourceTask;
+import io.dataease.dataset.dao.auto.entity.CoreDatasetSyncTask;
+import io.dataease.dataset.sync.DatasetSyncTaskManage;
 import io.dataease.datasource.manage.DataSourceManage;
 import io.dataease.datasource.manage.DatasourceSyncManage;
 import io.dataease.datasource.manage.EngineManage;
@@ -30,6 +32,8 @@ public class DataSourceInitStartListener implements ApplicationListener<Applicat
     private DataSourceManage dataSourceManage;
     @Resource
     private DatasourceTaskServer datasourceTaskServer;
+    @Resource
+    private DatasetSyncTaskManage datasetSyncTaskManage;
     @Resource
     private CalciteProvider calciteProvider;
     @Resource
@@ -61,6 +65,31 @@ public class DataSourceInitStartListener implements ApplicationListener<Applicat
                         }
                     } else {
                         datasourceSyncManage.addSchedule(task);
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        List<CoreDatasetSyncTask> datasetSyncTasks = List.of();
+        try {
+            datasetSyncTaskManage.recoverInterruptedTasks();
+            datasetSyncTasks = datasetSyncTaskManage.listAll();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        for (CoreDatasetSyncTask task : datasetSyncTasks) {
+            try {
+                if (!StringUtils.equalsIgnoreCase(task.getSyncRate(), DatasourceTaskServer.ScheduleType.RIGHTNOW.toString())) {
+                    if (task.getEndTime() != null && task.getEndTime() > 0) {
+                        if (task.getEndTime() > System.currentTimeMillis()) {
+                            datasetSyncTaskManage.addSchedule(task);
+                        } else {
+                            datasetSyncTaskManage.deleteSchedule(task);
+                        }
+                    } else {
+                        datasetSyncTaskManage.addSchedule(task);
                     }
                 }
             } catch (Exception e) {

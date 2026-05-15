@@ -334,6 +334,7 @@ export default {
     jdbc_connection_string: ' JDBC 連接字串',
     ssh_settings: 'SSH 設定',
     enable_ssh: '啟用SSH',
+    read_only: '唯讀模式',
     host: '主機',
     please_enter_hostname: '請輸入主機名稱',
     port: '端口',

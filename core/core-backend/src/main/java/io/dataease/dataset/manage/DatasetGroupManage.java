@@ -14,6 +14,7 @@ import io.dataease.dataset.dao.auto.mapper.CoreDatasetTableMapper;
 import io.dataease.dataset.dao.ext.mapper.CoreDataSetExtMapper;
 import io.dataease.dataset.dao.ext.po.DataSetNodePO;
 import io.dataease.dataset.dto.DataSetNodeBO;
+import io.dataease.dataset.sync.DatasetSyncTaskManage;
 import io.dataease.dataset.utils.DatasetUtils;
 import io.dataease.dataset.utils.FieldUtils;
 import io.dataease.dataset.utils.TableUtils;
@@ -74,6 +75,8 @@ public class DatasetGroupManage {
     private CoreDatasetTableMapper coreDatasetTableMapper;
     @Resource
     private CoreDatasourceMapper coreDatasourceMapper;
+    @Resource
+    private DatasetSyncTaskManage datasetSyncTaskManage;
 
 
     @Resource
@@ -220,6 +223,7 @@ public class DatasetGroupManage {
     }
 
     public void recursionDel(Long id) {
+        datasetSyncTaskManage.deleteByDatasetGroupId(id);
         coreDatasetGroupMapper.deleteById(id);
         datasetTableManage.deleteByDatasetGroupDelete(id);
         datasetTableFieldManage.deleteByDatasetGroupDelete(id);

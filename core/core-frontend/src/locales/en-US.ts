@@ -278,6 +278,7 @@ export default {
     jdbc_connection_string: 'JDBC connection string',
     ssh_settings: 'SSH settings',
     enable_ssh: 'Enable SSH',
+    read_only: 'Read only',
     host: 'Host',
     please_enter_hostname: 'Please enter the host name',
     port: 'Port',

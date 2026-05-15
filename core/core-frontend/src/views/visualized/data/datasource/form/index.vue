@@ -682,6 +682,13 @@ const init = (nodeInfo: Form | Param, id?: string, res?: object, supportSetKey: 
       if (form.hasOwnProperty('configuration') && form.configuration.sshType == undefined) {
         form.configuration.sshType = 'password'
       }
+      if (
+        form.type === 'obOracle' &&
+        form.hasOwnProperty('configuration') &&
+        form.configuration.readOnly == undefined
+      ) {
+        form.configuration.readOnly = true
+      }
     }
     pid.value = nodeInfo.pid || '0'
   } else {

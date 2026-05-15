@@ -170,6 +170,7 @@ export interface Configuration {
   queryTimeout: string
   charset: string
   targetCharset: string
+  readOnly: boolean
   useSSH: boolean
   sshHost: string
   sshPort: string

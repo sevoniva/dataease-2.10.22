@@ -62,9 +62,14 @@ import {
   getPreviewData,
   getDatasetDetails,
   saveDatasetTree,
-  barInfoApi
+  barInfoApi,
+  getDatasetSyncTask,
+  saveDatasetSyncTask,
+  executeDatasetSync,
+  stopDatasetSync,
+  getDatasetSyncLogs
 } from '@/api/dataset'
-import type { Table } from '@/api/dataset'
+import type { DatasetSyncLog, DatasetSyncTask, Table } from '@/api/dataset'
 import DatasetUnion from './DatasetUnion.vue'
 import { cloneDeep, debounce } from 'lodash-es'
 import { XpackComponent } from '@/components/plugin'
@@ -122,7 +127,27 @@ const currentField = ref({
   idArr: []
 })
 const isCross = ref(false)
+const syncMode = ref(0)
 let isUpdate = false
+let pendingSyncSave: Promise<void> | null = null
+
+const defaultSyncTask = (): DatasetSyncTask => ({
+  updateType: 'all_scope',
+  syncRate: 'RIGHTNOW',
+  simpleCronValue: 30,
+  simpleCronType: 'minute',
+  cron: '0 0/30 * * * ? *',
+  fullSyncIntervalHours: 24,
+  verifyEnabled: 1,
+  cacheExpireHours: 26,
+  taskTimeoutMinutes: 360,
+  failureWarnThreshold: 1
+})
+const syncTask = reactive<DatasetSyncTask>(defaultSyncTask())
+const syncLogs = ref<DatasetSyncLog[]>([])
+const syncSubmitting = ref(false)
+const syncAdvancedVisible = ref(false)
+let syncPollTimer: number | null = null
 
 const fieldTypes = index => {
   return [
@@ -214,6 +239,7 @@ let nodeInfo = {
   pid: '',
   name: ''
 }
+const currentDatasetId = ref('')
 
 const defaultProps = {
   children: 'children',
@@ -361,6 +387,9 @@ watch(searchTable, val => {
   )
 })
 const editeSave = () => {
+  if (!validateSyncSetting()) {
+    return
+  }
   const union = []
   loading.value = true
   dfsNodeList(union, datasetDrag.value.getNodeList())
@@ -369,9 +398,11 @@ const editeSave = () => {
     name: datasetName.value,
     union,
     isCross: isCross.value,
+    mode: datasetMode.value,
     allFields: allfields.value,
     nodeType: 'dataset'
   })
+    .then(() => persistDatasetSync(nodeInfo.id))
     .then(() => {
       isUpdate = false
       ElMessage.success(t('data_set.saved_successfully'))
@@ -744,9 +775,17 @@ const initEdite = async () => {
     if (copyId) {
       nodeInfo.id = ''
     }
+    currentDatasetId.value = nodeInfo.id || ''
     datasetName.value = nodeInfo.name
     allfields.value = res.allFields || []
     isCross.value = res.isCross || false
+    syncMode.value = copyId ? 0 : res.mode || 0
+    if (!copyId && res.id) {
+      await loadDatasetSyncTask(res.id)
+    } else {
+      Object.assign(syncTask, defaultSyncTask())
+      syncLogs.value = []
+    }
     dfsUnion(arr, res.union || [])
     const [fir] = res.union as { currentDs: { datasourceId: string } }[]
     dataSource.value = fir?.currentDs?.datasourceId
@@ -851,6 +890,246 @@ const allfields = ref([])
 
 provide('allfields', allfields)
 provide('isCross', isCross)
+
+const findDatasource = (list, id) => {
+  for (const item of list || []) {
+    if (`${item.id}` === `${id}`) {
+      return item
+    }
+    const child = findDatasource(item.children, id)
+    if (child) {
+      return child
+    }
+  }
+}
+
+const currentDatasource = computed(() => findDatasource(state.dataSourceList, dataSource.value))
+const obOracleDataset = computed(
+  () => !!dataSource.value && !isCross.value && currentDatasource.value?.type === 'obOracle'
+)
+const datasetMode = computed(() => (obOracleDataset.value && syncMode.value === 1 ? 1 : 0))
+const incrementalFieldOptions = computed(() =>
+  allfields.value.filter(ele => ele.extField === 0 && ele.checked !== false)
+)
+const timeIncrementalFields = computed(() =>
+  incrementalFieldOptions.value.filter(field => Number(field.deExtractType ?? field.deType) === 1)
+)
+const numberIncrementalFields = computed(() =>
+  incrementalFieldOptions.value.filter(field =>
+    [2, 3].includes(Number(field.deExtractType ?? field.deType))
+  )
+)
+const autoIncrementalField = computed(() => {
+  const keyword = ['更新', '修改', '时间', 'update', 'modify', 'time', 'date']
+  return (
+    timeIncrementalFields.value.find(field => {
+      const name = `${field.name || ''} ${field.originName || ''}`.toLowerCase()
+      return keyword.some(item => name.includes(item))
+    }) ||
+    timeIncrementalFields.value[0] ||
+    numberIncrementalFields.value.find(field => {
+      const name = `${field.name || ''} ${field.originName || ''}`.toLowerCase()
+      return name.includes('id') || name.includes('主键')
+    }) ||
+    numberIncrementalFields.value[0]
+  )
+})
+const currentIncrementalField = computed(() =>
+  incrementalFieldOptions.value.find(field => `${field.id}` === `${syncTask.incrementalFieldId}`)
+)
+const syncMethodText = computed(() => {
+  if (syncTask.updateType === 'add_scope') {
+    return currentIncrementalField.value?.name
+      ? `增量：${currentIncrementalField.value.name}`
+      : '增量'
+  }
+  return '全量'
+})
+const syncRunning = computed(() => syncTask.taskStatus === 'UnderExecution')
+const syncStatusText = computed(() => {
+  if (syncTask.taskStatus === 'UnderExecution') return '更新中'
+  if (syncTask.failureWarned) return '连续失败'
+  if (syncTask.lastVerifyStatus === 'WARNING') return '校验异常'
+  if (syncTask.cacheExpired) return '缓存过期'
+  if (syncTask.lastExecStatus === 'Completed')
+    return syncTask.cacheReady === 1 ? '缓存可用' : '已完成'
+  if (syncTask.lastExecStatus === 'Error') return '更新失败'
+  if (syncTask.taskStatus === 'Stopped') return '已停止'
+  return '未缓存'
+})
+const latestSyncLog = computed(() => syncLogs.value[0])
+const latestSyncInfo = computed(() => latestSyncLog.value?.info || syncTask.lastVerifyMessage || '')
+const syncDetailText = computed(() => {
+  const info = String(latestSyncInfo.value || '')
+  if (!info) return ''
+  if (syncTask.lastVerifyStatus === 'WARNING') return '查看校验详情'
+  if (syncTask.lastExecStatus === 'Error' || /^error\b/i.test(info)) {
+    return '查看错误详情'
+  }
+  if (info === '同步完成') return '更新完成'
+  return info
+})
+
+const applyIncrementalDefaults = () => {
+  if (syncTask.updateType !== 'add_scope') {
+    syncTask.incrementalFieldId = null
+    return
+  }
+  if (!currentIncrementalField.value) {
+    syncTask.incrementalFieldId = autoIncrementalField.value?.id || null
+  }
+  if (!syncTask.incrementalFieldId) {
+    syncTask.updateType = 'all_scope'
+  }
+}
+
+const syncModeChange = () => {
+  if (syncMode.value !== 1) {
+    return
+  }
+  if (syncTask.updateType === 'all_scope' && autoIncrementalField.value) {
+    syncTask.updateType = 'add_scope'
+  }
+  applyIncrementalDefaults()
+}
+
+const syncUpdateTypeChange = () => {
+  applyIncrementalDefaults()
+}
+
+watch([autoIncrementalField, () => syncMode.value], () => {
+  if (datasetMode.value === 1) {
+    applyIncrementalDefaults()
+  }
+})
+
+const refreshSimpleCron = () => {
+  const value = Number(syncTask.simpleCronValue || 30)
+  if (syncTask.simpleCronType === 'hour') {
+    syncTask.simpleCronValue = Math.min(Math.max(value, 1), 23)
+    syncTask.cron = `0 0 0/${syncTask.simpleCronValue} * * ? *`
+    return
+  }
+  if (syncTask.simpleCronType === 'day') {
+    syncTask.simpleCronValue = Math.min(Math.max(value, 1), 31)
+    syncTask.cron = `0 0 0 1/${syncTask.simpleCronValue} * ? *`
+    return
+  }
+  syncTask.simpleCronValue = Math.min(Math.max(value, 1), 59)
+  syncTask.cron = `0 0/${syncTask.simpleCronValue} * * * ? *`
+}
+
+const syncRateChange = () => {
+  if (syncTask.syncRate === 'SIMPLE_CRON') {
+    refreshSimpleCron()
+  }
+  if (syncTask.syncRate === 'RIGHTNOW') {
+    syncTask.cron = ''
+  }
+}
+
+const validateSyncSetting = () => {
+  if (datasetMode.value !== 1) {
+    return true
+  }
+  applyIncrementalDefaults()
+  return true
+}
+
+const loadDatasetSyncTask = async id => {
+  Object.assign(syncTask, defaultSyncTask())
+  const task = await getDatasetSyncTask(id)
+  if (task) {
+    Object.assign(syncTask, task)
+  }
+  applyIncrementalDefaults()
+  syncLogs.value = await getDatasetSyncLogs(id)
+  if (syncRunning.value) {
+    startSyncPolling()
+  } else {
+    stopSyncPolling()
+  }
+}
+
+const refreshDatasetSyncState = async () => {
+  if (!currentDatasetId.value) {
+    return
+  }
+  const task = await getDatasetSyncTask(currentDatasetId.value)
+  if (task) {
+    Object.assign(syncTask, task)
+  }
+  applyIncrementalDefaults()
+  syncLogs.value = await getDatasetSyncLogs(currentDatasetId.value)
+  if (!syncRunning.value) {
+    stopSyncPolling()
+  }
+}
+
+const startSyncPolling = () => {
+  if (syncPollTimer) {
+    return
+  }
+  syncPollTimer = window.setInterval(() => {
+    refreshDatasetSyncState().catch(() => stopSyncPolling())
+  }, 3000)
+}
+
+const stopSyncPolling = () => {
+  if (!syncPollTimer) {
+    return
+  }
+  window.clearInterval(syncPollTimer)
+  syncPollTimer = null
+}
+
+const persistDatasetSync = async id => {
+  if (!id) {
+    return
+  }
+  if (datasetMode.value !== 1) {
+    await stopDatasetSync(id)
+    stopSyncPolling()
+    return
+  }
+  if (!validateSyncSetting()) {
+    throw new Error('invalid sync setting')
+  }
+  applyIncrementalDefaults()
+  if (syncTask.syncRate === 'SIMPLE_CRON') {
+    refreshSimpleCron()
+  }
+  await saveDatasetSyncTask({
+    ...toRaw(syncTask),
+    datasetGroupId: id,
+    name: datasetName.value,
+    incrementalFieldId: syncTask.updateType === 'add_scope' ? syncTask.incrementalFieldId : null
+  })
+}
+
+const executeDatasetSyncNow = async () => {
+  if (!currentDatasetId.value) {
+    ElMessage.warning('请先保存数据集')
+    return
+  }
+  if (syncRunning.value) {
+    ElMessage.warning('已有同步任务正在执行')
+    return
+  }
+  syncSubmitting.value = true
+  try {
+    await persistDatasetSync(currentDatasetId.value)
+    const task = await executeDatasetSync(currentDatasetId.value)
+    if (task) {
+      Object.assign(syncTask, task)
+    }
+    syncLogs.value = await getDatasetSyncLogs(currentDatasetId.value)
+    startSyncPolling()
+    ElMessage.success('同步任务已提交')
+  } finally {
+    syncSubmitting.value = false
+  }
+}
 
 const expandedD = ref(true)
 const expandedQ = ref(true)
@@ -1332,8 +1611,12 @@ const handleResize = debounce(() => {
   dragHeight.value = clientHeight - sqlResultHeight.value - 56
 }, 60)
 let willBack = false
-const saveAndBack = () => {
+const saveAndBack = async () => {
   if (!willBack) return
+  if (pendingSyncSave) {
+    await pendingSyncSave
+    pendingSyncSave = null
+  }
   pushDataset()
 }
 
@@ -1350,6 +1633,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  stopSyncPolling()
   window.removeEventListener('resize', handleResize)
 })
 const getSqlResultHeight = () => {
@@ -1411,6 +1695,9 @@ const resetAllfieldsUnionId = (arr, idMap) => {
 }
 
 const datasetSave = () => {
+  if (!validateSyncSetting()) {
+    return
+  }
   if (nodeInfo.id) {
     editeSave()
     return
@@ -1428,7 +1715,13 @@ const datasetSave = () => {
 
   creatDsFolder.value.createInit(
     'dataset',
-    { id: pid || '0', union, allfields: allfields.value, isCross: isCross.value },
+    {
+      id: pid || '0',
+      union,
+      allfields: allfields.value,
+      isCross: isCross.value,
+      mode: datasetMode.value
+    },
     '',
     datasetName.value
   )
@@ -1662,7 +1955,11 @@ const finish = res => {
     pid,
     name
   }
+  currentDatasetId.value = id
   allfields.value = res.allFields || []
+  pendingSyncSave = persistDatasetSync(id).catch(e => {
+    ElMessage.error(e?.message || '同步设置保存失败')
+  })
 }
 
 const errorTips = ref('')
@@ -1815,6 +2112,127 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
               </div>
             </template>
           </el-tree-select>
+          <div v-if="obOracleDataset" class="dataset-sync-setting">
+            <div class="sync-row">
+              <span>读取方式</span>
+              <el-radio-group v-model="syncMode" @change="syncModeChange">
+                <el-radio :value="0">直连</el-radio>
+                <el-radio :value="1">缓存</el-radio>
+              </el-radio-group>
+            </div>
+            <template v-if="syncMode === 1">
+              <div class="sync-row">
+                <span>更新方式</span>
+                <el-radio-group v-model="syncTask.updateType" @change="syncUpdateTypeChange">
+                  <el-radio value="add_scope">增量</el-radio>
+                  <el-radio value="all_scope">全量</el-radio>
+                </el-radio-group>
+              </div>
+              <div class="sync-row">
+                <span>更新频率</span>
+                <el-radio-group v-model="syncTask.syncRate" @change="syncRateChange">
+                  <el-radio value="RIGHTNOW">手动</el-radio>
+                  <el-radio value="SIMPLE_CRON">定时</el-radio>
+                  <el-radio v-if="syncTask.syncRate === 'CRON'" value="CRON">表达式</el-radio>
+                </el-radio-group>
+              </div>
+              <div v-if="syncTask.syncRate === 'SIMPLE_CRON'" class="sync-cron">
+                <el-input-number
+                  v-model="syncTask.simpleCronValue"
+                  :min="1"
+                  controls-position="right"
+                  @change="refreshSimpleCron"
+                />
+                <el-select
+                  v-model="syncTask.simpleCronType"
+                  class="sync-unit"
+                  @change="refreshSimpleCron"
+                >
+                  <el-option label="分钟" value="minute" />
+                  <el-option label="小时" value="hour" />
+                  <el-option label="天" value="day" />
+                </el-select>
+              </div>
+              <div class="sync-summary">
+                <span>{{ syncMethodText }}</span>
+                <span>{{ syncStatusText }}</span>
+              </div>
+              <el-button
+                class="sync-now"
+                secondary
+                :loading="syncSubmitting"
+                :disabled="!currentDatasetId || syncRunning"
+                @click="executeDatasetSyncNow"
+              >
+                {{ syncRunning ? '更新中' : '立即更新' }}
+              </el-button>
+              <div class="sync-status" v-if="syncTask.lastExecTime || latestSyncLog">
+                <span v-if="latestSyncLog">{{ latestSyncLog.rowCount || 0 }} 行</span>
+                <span v-if="syncTask.lastExecTime">{{
+                  dayjs(syncTask.lastExecTime).format('YYYY-MM-DD HH:mm:ss')
+                }}</span>
+              </div>
+              <el-tooltip v-if="latestSyncInfo" :content="latestSyncInfo" placement="top">
+                <div class="sync-log">{{ syncDetailText }}</div>
+              </el-tooltip>
+              <el-button
+                class="sync-advanced-toggle"
+                text
+                @click="syncAdvancedVisible = !syncAdvancedVisible"
+              >
+                {{ syncAdvancedVisible ? '收起' : '更多设置' }}
+              </el-button>
+              <div v-if="syncAdvancedVisible" class="sync-advanced">
+                <el-input
+                  v-if="syncTask.syncRate === 'CRON'"
+                  v-model="syncTask.cron"
+                  class="sync-control"
+                  placeholder="Cron 表达式"
+                />
+                <el-select
+                  v-if="syncTask.updateType === 'add_scope'"
+                  v-model="syncTask.incrementalFieldId"
+                  class="sync-control"
+                  placeholder="自动识别增量字段"
+                >
+                  <el-option
+                    v-for="field in incrementalFieldOptions"
+                    :key="field.id"
+                    :label="field.name"
+                    :value="field.id"
+                  />
+                </el-select>
+                <div class="sync-options">
+                  <div v-if="syncTask.updateType === 'add_scope'" class="sync-option">
+                    <span>全量刷新间隔(小时)</span>
+                    <el-input-number
+                      v-model="syncTask.fullSyncIntervalHours"
+                      :min="0"
+                      :max="720"
+                      controls-position="right"
+                    />
+                  </div>
+                  <div class="sync-option">
+                    <span>超时(分钟)</span>
+                    <el-input-number
+                      v-model="syncTask.taskTimeoutMinutes"
+                      :min="0"
+                      :max="1440"
+                      controls-position="right"
+                    />
+                  </div>
+                </div>
+                <el-checkbox
+                  v-model="syncTask.verifyEnabled"
+                  class="sync-check"
+                  :true-label="1"
+                  :false-label="0"
+                >
+                  更新后校验
+                </el-checkbox>
+              </div>
+            </template>
+          </div>
           <p class="select-ds table-num">
             {{ t('datasource.data_table') }}
             <span class="num">
@@ -2998,12 +3416,16 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
     }
 
     .table-list {
+      display: flex;
+      flex-direction: column;
+
       .list-item_primary {
         padding: 8px;
       }
       .table-list-top {
         padding: 16px;
         padding-bottom: 0;
+        flex: 0 0 auto;
       }
 
       height: 100%;
@@ -3079,8 +3501,136 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
         width: 100%;
       }
 
+      .dataset-sync-setting {
+        padding: 10px 0 14px;
+        margin-bottom: 12px;
+        border-top: 1px solid #dee0e3;
+        border-bottom: 1px solid #dee0e3;
+
+        .sync-row {
+          min-height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          font-size: 13px;
+          color: #1f2329;
+
+          span {
+            flex: 0 0 auto;
+            color: #646a73;
+          }
+        }
+
+        .sync-control,
+        .sync-now {
+          width: 100%;
+          margin-top: 8px;
+        }
+
+        .sync-summary {
+          min-height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-top: 8px;
+          padding: 0 2px;
+          font-size: 12px;
+          color: #646a73;
+
+          span:first-child {
+            min-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            color: #1f2329;
+          }
+
+          span:last-child {
+            flex: 0 0 auto;
+          }
+        }
+
+        .sync-options {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          margin-top: 8px;
+        }
+
+        .sync-option {
+          min-width: 0;
+
+          > span {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 12px;
+            color: #646a73;
+          }
+
+          .ed-input-number {
+            width: 100%;
+          }
+        }
+
+        .sync-check {
+          margin-top: 8px;
+        }
+
+        .sync-status,
+        .sync-log {
+          display: flex;
+          gap: 8px;
+          margin-top: 8px;
+          font-size: 12px;
+          line-height: 18px;
+          color: #646a73;
+        }
+
+        .sync-status,
+        .sync-log {
+          justify-content: space-between;
+        }
+
+        .sync-log {
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+          color: #8f959e;
+        }
+
+        .sync-cron {
+          display: flex;
+          gap: 8px;
+          margin-top: 8px;
+
+          .ed-input-number {
+            width: 92px;
+          }
+
+          .sync-unit {
+            flex: 1;
+          }
+        }
+
+        .sync-advanced-toggle {
+          height: 24px;
+          margin-top: 6px;
+          padding: 0;
+          font-size: 12px;
+        }
+
+        .sync-advanced {
+          margin-top: 4px;
+          padding-top: 8px;
+          border-top: 1px dashed #dee0e3;
+        }
+      }
+
       .table-checkbox-list {
-        height: calc(100% - 190px);
+        flex: 1;
+        min-height: 0;
         overflow-y: auto;
         padding: 0 8px;
 

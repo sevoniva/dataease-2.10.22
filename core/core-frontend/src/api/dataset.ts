@@ -15,6 +15,7 @@ export interface DatasetOrFolder {
   id?: number | string
   pid?: number | string
   nodeType: 'folder' | 'dataset'
+  mode?: number
   union?: Array<{}>
   allFields?: Array<{}>
 }
@@ -65,6 +66,7 @@ export interface Dataset {
   pid: string
   name: string
   isCross?: boolean
+  mode?: number
   union?: Array<{}>
   allFields?: Array<{}>
 }
@@ -75,6 +77,56 @@ export interface Table {
   tableName: string
   type: string
   unableCheck?: boolean
+}
+
+export interface DatasetSyncTask {
+  id?: string | number
+  datasetGroupId?: string | number
+  name?: string
+  updateType?: 'all_scope' | 'add_scope'
+  incrementalFieldId?: string | number | null
+  incrementalLastValue?: string
+  startTime?: number
+  syncRate?: 'RIGHTNOW' | 'SIMPLE_CRON' | 'CRON' | 'MANUAL'
+  cron?: string
+  simpleCronValue?: number
+  simpleCronType?: 'minute' | 'hour' | 'day'
+  endTime?: number
+  lastExecTime?: number
+  heartbeatTime?: number
+  lastExecStatus?: string
+  taskStatus?: string
+  cacheReady?: number
+  schemaHash?: string
+  fullSyncIntervalHours?: number
+  lastFullSyncTime?: number
+  verifyEnabled?: number
+  lastVerifyTime?: number
+  lastVerifyStatus?: string
+  lastVerifyMessage?: string
+  lastSourceRowCount?: number
+  lastCacheRowCount?: number
+  cacheExpireHours?: number
+  taskTimeoutMinutes?: number
+  consecutiveFailures?: number
+  failureWarnThreshold?: number
+  cacheExpired?: boolean
+  failureWarned?: boolean
+}
+
+export interface DatasetSyncLog {
+  id?: string | number
+  datasetGroupId?: string | number
+  taskId?: string | number
+  updateType?: string
+  tableName?: string
+  startTime?: number
+  endTime?: number
+  taskStatus?: string
+  rowCount?: number
+  info?: string
+  createTime?: number
+  triggerType?: string
 }
 // 获取权限路
 // edit
@@ -256,6 +308,35 @@ export const getDsDetailsWithPerm = async (data): Promise<DatasetDetail[]> => {
 export const getSqlParams = async (data): Promise<ParamsDetail[]> => {
   return request.post({ url: '/datasetTree/getSqlParams', data }).then(res => {
     return res?.data
+  })
+}
+
+export const getDatasetSyncTask = async (datasetGroupId): Promise<DatasetSyncTask> => {
+  return request.get({ url: `/datasetSync/task/${datasetGroupId}` }).then(res => {
+    return res?.data
+  })
+}
+
+export const saveDatasetSyncTask = async (data: DatasetSyncTask): Promise<DatasetSyncTask> => {
+  return request.post({ url: '/datasetSync/save', data }).then(res => {
+    return res?.data
+  })
+}
+
+export const executeDatasetSync = async (datasetGroupId): Promise<DatasetSyncTask> => {
+  return request.post({ url: `/datasetSync/execute/${datasetGroupId}`, data: {} }).then(res => {
+    return res?.data
+  })
+}
+
+export const stopDatasetSync = async (datasetGroupId): Promise<void> => {
+  return request.post({ url: `/datasetSync/stop/${datasetGroupId}`, data: {} }).then(res => {
+    return res?.data
+  })
+}
+export const getDatasetSyncLogs = async (datasetGroupId): Promise<DatasetSyncLog[]> => {
+  return request.get({ url: `/datasetSync/logs/${datasetGroupId}` }).then(res => {
+    return res?.data || []
   })
 }
 export const rowPermissionList = (page: number, limit: number, datasetId: number) =>

@@ -335,6 +335,7 @@ export default {
     jdbc_connection_string: ' JDBC 连接字符串',
     ssh_settings: 'SSH 设置',
     enable_ssh: '启用SSH',
+    read_only: '只读模式',
     host: '主机',
     please_enter_hostname: '请输入主机名',
     port: '端口',
