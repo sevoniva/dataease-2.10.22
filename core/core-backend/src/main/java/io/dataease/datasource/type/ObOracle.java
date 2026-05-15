@@ -17,6 +17,7 @@ import java.util.Locale;
 public class ObOracle extends DatasourceConfiguration {
     private String driver = "com.oceanbase.jdbc.Driver";
     private String extraParams = "";
+    private Boolean readOnly = true;
     private static final List<String> ILLEGAL_PARAMETERS = Arrays.asList(
             "java.naming.factory.initial", "java.naming.provider.url", "rmi",
             "ldap://", "ldaps://", "java.naming.factory.object", "java.naming.factory.state",

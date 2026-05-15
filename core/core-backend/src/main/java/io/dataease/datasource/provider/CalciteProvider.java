@@ -81,8 +81,17 @@ public class CalciteProvider extends Provider {
         return StringUtils.equalsIgnoreCase(type, DatasourceConfiguration.DatasourceType.obOracle.getType());
     }
 
-    private boolean isReadOnlyRequest(DatasourceRequest datasourceRequest) {
-        return Boolean.TRUE.equals(datasourceRequest.getReadOnly());
+    boolean shouldUseReadOnlyConnection(
+            DatasourceRequest datasourceRequest,
+            DatasourceConfiguration datasourceConfiguration,
+            String datasourceType
+    ) {
+        if (Boolean.TRUE.equals(datasourceRequest.getReadOnly())) {
+            return true;
+        }
+        return isObOracle(datasourceType)
+                && datasourceConfiguration instanceof ObOracle obOracle
+                && !Boolean.FALSE.equals(obOracle.getReadOnly());
     }
 
     private void setConnectionReadOnly(Connection connection, boolean readOnly) {
@@ -92,7 +101,7 @@ public class CalciteProvider extends Provider {
         try {
             connection.setReadOnly(true);
         } catch (SQLException e) {
-            DEException.throwException("Set datasource connection read-only failed: " + e.getMessage());
+            DEException.throwException("源库只读连接启用失败：" + e.getMessage());
         }
     }
 
@@ -103,7 +112,7 @@ public class CalciteProvider extends Provider {
         try {
             connection.setReadOnly(false);
         } catch (SQLException e) {
-            LogUtil.warn("Reset datasource connection read-only failed: " + e.getMessage());
+            LogUtil.warn("源库只读连接恢复失败：" + e.getMessage());
         }
     }
 
@@ -149,9 +158,24 @@ public class CalciteProvider extends Provider {
     public List<String> getSchema(DatasourceRequest datasourceRequest) {
         List<String> schemas = new ArrayList<>();
         String queryStr = getSchemaSql(datasourceRequest.getDatasource());
-        try (ConnectionObj con = getConnection(datasourceRequest.getDatasource()); Statement statement = getStatement(con.getConnection(), 30); ResultSet resultSet = statement.executeQuery(queryStr)) {
-            while (resultSet.next()) {
-                schemas.add(resultSet.getString(1));
+        try (ConnectionObj con = getConnection(datasourceRequest.getDatasource())) {
+            DatasourceConfiguration datasourceConfiguration = parseDatasourceConfiguration(
+                    datasourceRequest.getDatasource().getConfiguration(),
+                    datasourceRequest.getDatasource().getType()
+            );
+            boolean readOnly = shouldUseReadOnlyConnection(
+                    datasourceRequest,
+                    datasourceConfiguration,
+                    datasourceRequest.getDatasource().getType()
+            );
+            setConnectionReadOnly(con.getConnection(), readOnly);
+            try (Statement statement = getStatement(con.getConnection(), 30);
+                 ResultSet resultSet = statement.executeQuery(queryStr)) {
+                while (resultSet.next()) {
+                    schemas.add(resultSet.getString(1));
+                }
+            } finally {
+                resetConnectionReadOnly(con.getConnection(), readOnly);
             }
         } catch (Exception e) {
             LogUtil.error(e.getMessage(), e);
@@ -180,15 +204,29 @@ public class CalciteProvider extends Provider {
         }
 
         try (ConnectionObj con = getConnection(datasourceRequest.getDatasource())) {
-            datasourceRequest.setDsVersion(con.getConnection().getMetaData().getDatabaseMajorVersion());
-            String querySql = getTablesSql(datasourceRequest).get(0);
-            Statement statement = getStatement(con.getConnection(), 30);
-            ResultSet resultSet = statement.executeQuery(querySql);
-            if (resultSet != null) {
-                resultSet.close();
-            }
-            if (statement != null) {
-                statement.close();
+            DatasourceConfiguration datasourceConfiguration = parseDatasourceConfiguration(
+                    datasourceRequest.getDatasource().getConfiguration(),
+                    datasourceRequest.getDatasource().getType()
+            );
+            boolean readOnly = shouldUseReadOnlyConnection(
+                    datasourceRequest,
+                    datasourceConfiguration,
+                    datasourceRequest.getDatasource().getType()
+            );
+            setConnectionReadOnly(con.getConnection(), readOnly);
+            try {
+                datasourceRequest.setDsVersion(con.getConnection().getMetaData().getDatabaseMajorVersion());
+                String querySql = getTablesSql(datasourceRequest).get(0);
+                Statement statement = getStatement(con.getConnection(), 30);
+                ResultSet resultSet = statement.executeQuery(querySql);
+                if (resultSet != null) {
+                    resultSet.close();
+                }
+                if (statement != null) {
+                    statement.close();
+                }
+            } finally {
+                resetConnectionReadOnly(con.getConnection(), readOnly);
             }
         } catch (Exception e) {
             throw e;
@@ -199,14 +237,29 @@ public class CalciteProvider extends Provider {
     @Override
     public List<DatasetTableDTO> getTables(DatasourceRequest datasourceRequest) {
         List<DatasetTableDTO> tables = new ArrayList<>();
-        try (Connection con = getConnectionFromPool(datasourceRequest.getDatasource().getId()); Statement statement = getStatement(con, 30)) {
-            datasourceRequest.setDsVersion(con.getMetaData().getDatabaseMajorVersion());
-            List<String> tablesSqls = getTablesSql(datasourceRequest);
-            for (String tablesSql : tablesSqls) {
-                ResultSet resultSet = statement.executeQuery(tablesSql);
-                while (resultSet.next()) {
-                    tables.add(getTableDesc(datasourceRequest, resultSet));
+        try (Connection con = getConnectionFromPool(datasourceRequest.getDatasource().getId());
+             Statement statement = getStatement(con, 30)) {
+            DatasourceConfiguration datasourceConfiguration = parseDatasourceConfiguration(
+                    datasourceRequest.getDatasource().getConfiguration(),
+                    datasourceRequest.getDatasource().getType()
+            );
+            boolean readOnly = shouldUseReadOnlyConnection(
+                    datasourceRequest,
+                    datasourceConfiguration,
+                    datasourceRequest.getDatasource().getType()
+            );
+            setConnectionReadOnly(con, readOnly);
+            try {
+                datasourceRequest.setDsVersion(con.getMetaData().getDatabaseMajorVersion());
+                List<String> tablesSqls = getTablesSql(datasourceRequest);
+                for (String tablesSql : tablesSqls) {
+                    ResultSet resultSet = statement.executeQuery(tablesSql);
+                    while (resultSet.next()) {
+                        tables.add(getTableDesc(datasourceRequest, resultSet));
+                    }
                 }
+            } finally {
+                resetConnectionReadOnly(con, readOnly);
             }
         } catch (Exception e) {
             LogUtil.error(e.getMessage(), e);
@@ -309,15 +362,26 @@ public class CalciteProvider extends Provider {
         String sql = "SELECT * FROM `$TABLE_NAME$` LIMIT 0 OFFSET 0".replace("$TABLE_NAME$", schemaTable);
         sql = transSqlDialect(sql, datasourceRequest.getDsList());
         ResultSet resultSet = null;
-        try (Connection con = getConnectionFromPool(datasourceRequest.getDatasource().getId()); Statement statement = getStatement(con, 30)) {
-            resultSet = statement.executeQuery(sql);
+        try (Connection con = getConnectionFromPool(datasourceRequest.getDatasource().getId());
+             Statement statement = getStatement(con, 30)) {
+            boolean readOnly = shouldUseReadOnlyConnection(
+                    datasourceRequest,
+                    datasourceConfiguration,
+                    datasourceRequest.getDatasource().getType()
+            );
+            setConnectionReadOnly(con, readOnly);
+            try {
+                resultSet = statement.executeQuery(sql);
 
-            ResultSetMetaData metaData = resultSet.getMetaData();
-            int columnCount = metaData.getColumnCount();
-            for (int j = 0; j < columnCount; j++) {
-                String name = StringUtils.lowerCase(metaData.getColumnName(j + 1));
-                Integer type = metaData.getColumnType(j + 1);
-                map.put(name, type);
+                ResultSetMetaData metaData = resultSet.getMetaData();
+                int columnCount = metaData.getColumnCount();
+                for (int j = 0; j < columnCount; j++) {
+                    String name = StringUtils.lowerCase(metaData.getColumnName(j + 1));
+                    Integer type = metaData.getColumnType(j + 1);
+                    map.put(name, type);
+                }
+            } finally {
+                resetConnectionReadOnly(con, readOnly);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -371,12 +435,19 @@ public class CalciteProvider extends Provider {
         String table = datasourceRequest.getTable();
         if (StringUtils.isEmpty(table)) {
             ResultSet resultSet = null;
-            try (Connection con = getConnectionFromPool(datasourceRequest.getDatasource().getId()); Statement statement = getStatement(con, 30)) {
+            try (Connection con = getConnectionFromPool(datasourceRequest.getDatasource().getId());
+                 Statement statement = getStatement(con, 30)) {
                 if (isOracleLike(datasourceSchemaDTO.getType())) {
                     statement.executeUpdate("ALTER SESSION SET CURRENT_SCHEMA = " + datasourceConfiguration.getSchema());
                 }
-                resultSet = statement.executeQuery(datasourceRequest.getQuery());
-                datasetTableFields.addAll(getField(resultSet, datasourceRequest));
+                boolean readOnly = shouldUseReadOnlyConnection(datasourceRequest, datasourceConfiguration, datasourceSchemaDTO.getType());
+                setConnectionReadOnly(con, readOnly);
+                try {
+                    resultSet = statement.executeQuery(datasourceRequest.getQuery());
+                    datasetTableFields.addAll(getField(resultSet, datasourceRequest));
+                } finally {
+                    resetConnectionReadOnly(con, readOnly);
+                }
             } catch (Exception e) {
                 DEException.throwException(e.getMessage());
             } finally {
@@ -393,36 +464,43 @@ public class CalciteProvider extends Provider {
                 DEException.throwException(Translator.get("i18n_invalid_table_name"));
             }
             ResultSet resultSet = null;
-            try (Connection con = getConnectionFromPool(datasourceRequest.getDatasource().getId()); Statement statement = getStatement(con, 30)) {
-                datasourceRequest.setDsVersion(con.getMetaData().getDatabaseMajorVersion());
-                if (datasourceRequest.getDatasource().getType().equalsIgnoreCase("mongo")) {
-                    resultSet = statement.executeQuery("select * from " + String.format(" `%s`", table) + " limit 0 offset 0 ");
-                    return fetchResultField(resultSet);
-                }
-                if (isDorisCatalog(datasourceRequest)) {
-                    resultSet = statement.executeQuery("desc " + String.format(" `%s`", table));
-                } else {
-                    resultSet = statement.executeQuery(getTableFiledSql(datasourceRequest));
-                }
+            try (Connection con = getConnectionFromPool(datasourceRequest.getDatasource().getId());
+                 Statement statement = getStatement(con, 30)) {
+                boolean readOnly = shouldUseReadOnlyConnection(datasourceRequest, datasourceConfiguration, datasourceSchemaDTO.getType());
+                setConnectionReadOnly(con, readOnly);
+                try {
+                    datasourceRequest.setDsVersion(con.getMetaData().getDatabaseMajorVersion());
+                    if (datasourceRequest.getDatasource().getType().equalsIgnoreCase("mongo")) {
+                        resultSet = statement.executeQuery("select * from " + String.format(" `%s`", table) + " limit 0 offset 0 ");
+                        return fetchResultField(resultSet);
+                    }
+                    if (isDorisCatalog(datasourceRequest)) {
+                        resultSet = statement.executeQuery("desc " + String.format(" `%s`", table));
+                    } else {
+                        resultSet = statement.executeQuery(getTableFiledSql(datasourceRequest));
+                    }
 
-                Map<String, Integer> tableTypeMap = getTableTypeMap(datasourceRequest, datasourceConfiguration, table);
+                    Map<String, Integer> tableTypeMap = getTableTypeMap(datasourceRequest, datasourceConfiguration, table);
 
-                while (resultSet.next()) {
-                    TableField tableFieldDesc = getTableFieldDesc(datasourceRequest, resultSet, 3, tableTypeMap);
-                    boolean repeat = false;
-                    for (TableField ele : datasetTableFields) {
-                        if (StringUtils.equalsIgnoreCase(ele.getOriginName(), tableFieldDesc.getOriginName())) {
-                            repeat = true;
-                            break;
+                    while (resultSet.next()) {
+                        TableField tableFieldDesc = getTableFieldDesc(datasourceRequest, resultSet, 3, tableTypeMap);
+                        boolean repeat = false;
+                        for (TableField ele : datasetTableFields) {
+                            if (StringUtils.equalsIgnoreCase(ele.getOriginName(), tableFieldDesc.getOriginName())) {
+                                repeat = true;
+                                break;
+                            }
+                        }
+                        if (!repeat) {
+                            datasetTableFields.add(tableFieldDesc);
                         }
                     }
-                    if (!repeat) {
-                        datasetTableFields.add(tableFieldDesc);
+                    if (isObOracle(datasourceRequest.getDatasource().getType())) {
+                        DatasourceConfiguration configuration = parseOracleLikeConfiguration(datasourceRequest.getDatasource().getConfiguration(), datasourceRequest.getDatasource().getType());
+                        applyOracleColumnComments(datasetTableFields, getOracleColumnComments(con, configuration.getSchema(), table));
                     }
-                }
-                if (isObOracle(datasourceRequest.getDatasource().getType())) {
-                    DatasourceConfiguration configuration = parseOracleLikeConfiguration(datasourceRequest.getDatasource().getConfiguration(), datasourceRequest.getDatasource().getType());
-                    applyOracleColumnComments(datasetTableFields, getOracleColumnComments(con, configuration.getSchema(), table));
+                } finally {
+                    resetConnectionReadOnly(con, readOnly);
                 }
             } catch (Exception e) {
                 DEException.throwException(e.getMessage());
@@ -560,7 +638,7 @@ public class CalciteProvider extends Provider {
         try (Connection con = getConnectionFromPool(datasourceRequest.getDatasource().getId())) {
 
             Statement statement = getStatement(value, con, datasourceRequest, datasourceConfiguration, null);
-            boolean readOnly = isReadOnlyRequest(datasourceRequest);
+            boolean readOnly = shouldUseReadOnlyConnection(datasourceRequest, datasourceConfiguration, value.getType());
             setConnectionReadOnly(con, readOnly);
             try {
                 if (CollectionUtils.isNotEmpty(datasourceRequest.getTableFieldWithValues())) {

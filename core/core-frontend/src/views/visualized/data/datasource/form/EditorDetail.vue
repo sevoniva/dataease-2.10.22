@@ -169,6 +169,7 @@ const initForm = (type, pluginDsList, indexPlugin, isPluginDs) => {
       sslCA: '',
       sslCert: '',
       sslKey: '',
+      readOnly: type === 'obOracle',
       initialPoolSize: 50,
       minPoolSize: 50,
       maxPoolSize: 100,
@@ -1245,6 +1246,11 @@ defineExpose({
             >
               <el-option v-for="item in targetCharset" :key="item" :label="item" :value="item" />
             </el-select>
+          </el-form-item>
+          <el-form-item v-if="form.type === 'obOracle'">
+            <el-checkbox v-model="form.configuration.readOnly">
+              {{ t('data_source.read_only') }}
+            </el-checkbox>
           </el-form-item>
           <el-form-item
             :label="t('datasource.extra_params')"
