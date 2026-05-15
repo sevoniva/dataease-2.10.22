@@ -146,6 +146,7 @@ const defaultSyncTask = (): DatasetSyncTask => ({
 const syncTask = reactive<DatasetSyncTask>(defaultSyncTask())
 const syncLogs = ref<DatasetSyncLog[]>([])
 const syncSubmitting = ref(false)
+const syncAdvancedVisible = ref(false)
 let syncPollTimer: number | null = null
 
 const fieldTypes = index => {
@@ -910,23 +911,96 @@ const datasetMode = computed(() => (obOracleDataset.value && syncMode.value === 
 const incrementalFieldOptions = computed(() =>
   allfields.value.filter(ele => ele.extField === 0 && ele.checked !== false)
 )
+const timeIncrementalFields = computed(() =>
+  incrementalFieldOptions.value.filter(field => Number(field.deExtractType ?? field.deType) === 1)
+)
+const numberIncrementalFields = computed(() =>
+  incrementalFieldOptions.value.filter(field =>
+    [2, 3].includes(Number(field.deExtractType ?? field.deType))
+  )
+)
+const autoIncrementalField = computed(() => {
+  const keyword = ['更新', '修改', '时间', 'update', 'modify', 'time', 'date']
+  return (
+    timeIncrementalFields.value.find(field => {
+      const name = `${field.name || ''} ${field.originName || ''}`.toLowerCase()
+      return keyword.some(item => name.includes(item))
+    }) ||
+    timeIncrementalFields.value[0] ||
+    numberIncrementalFields.value.find(field => {
+      const name = `${field.name || ''} ${field.originName || ''}`.toLowerCase()
+      return name.includes('id') || name.includes('主键')
+    }) ||
+    numberIncrementalFields.value[0]
+  )
+})
+const currentIncrementalField = computed(() =>
+  incrementalFieldOptions.value.find(field => `${field.id}` === `${syncTask.incrementalFieldId}`)
+)
+const syncMethodText = computed(() => {
+  if (syncTask.updateType === 'add_scope') {
+    return currentIncrementalField.value?.name
+      ? `增量：${currentIncrementalField.value.name}`
+      : '增量'
+  }
+  return '全量'
+})
 const syncRunning = computed(() => syncTask.taskStatus === 'UnderExecution')
 const syncStatusText = computed(() => {
-  if (syncTask.taskStatus === 'UnderExecution') return '同步中'
+  if (syncTask.taskStatus === 'UnderExecution') return '更新中'
   if (syncTask.failureWarned) return '连续失败'
   if (syncTask.lastVerifyStatus === 'WARNING') return '校验异常'
   if (syncTask.cacheExpired) return '缓存过期'
   if (syncTask.lastExecStatus === 'Completed')
     return syncTask.cacheReady === 1 ? '缓存可用' : '已完成'
-  if (syncTask.lastExecStatus === 'Error') return '同步失败'
+  if (syncTask.lastExecStatus === 'Error') return '更新失败'
   if (syncTask.taskStatus === 'Stopped') return '已停止'
-  return '未同步'
+  return '未缓存'
 })
 const latestSyncLog = computed(() => syncLogs.value[0])
-const syncVerifyText = computed(() => {
-  if (syncTask.lastVerifyStatus === 'PASSED') return '对账通过'
-  if (syncTask.lastVerifyStatus === 'WARNING') return syncTask.lastVerifyMessage || '对账异常'
-  return ''
+const latestSyncInfo = computed(() => latestSyncLog.value?.info || syncTask.lastVerifyMessage || '')
+const syncDetailText = computed(() => {
+  const info = String(latestSyncInfo.value || '')
+  if (!info) return ''
+  if (syncTask.lastVerifyStatus === 'WARNING') return '查看校验详情'
+  if (syncTask.lastExecStatus === 'Error' || /^error\b/i.test(info)) {
+    return '查看错误详情'
+  }
+  if (info === '同步完成') return '更新完成'
+  return info
+})
+
+const applyIncrementalDefaults = () => {
+  if (syncTask.updateType !== 'add_scope') {
+    syncTask.incrementalFieldId = null
+    return
+  }
+  if (!currentIncrementalField.value) {
+    syncTask.incrementalFieldId = autoIncrementalField.value?.id || null
+  }
+  if (!syncTask.incrementalFieldId) {
+    syncTask.updateType = 'all_scope'
+  }
+}
+
+const syncModeChange = () => {
+  if (syncMode.value !== 1) {
+    return
+  }
+  if (syncTask.updateType === 'all_scope' && autoIncrementalField.value) {
+    syncTask.updateType = 'add_scope'
+  }
+  applyIncrementalDefaults()
+}
+
+const syncUpdateTypeChange = () => {
+  applyIncrementalDefaults()
+}
+
+watch([autoIncrementalField, () => syncMode.value], () => {
+  if (datasetMode.value === 1) {
+    applyIncrementalDefaults()
+  }
 })
 
 const refreshSimpleCron = () => {
@@ -958,10 +1032,7 @@ const validateSyncSetting = () => {
   if (datasetMode.value !== 1) {
     return true
   }
-  if (syncTask.updateType === 'add_scope' && !syncTask.incrementalFieldId) {
-    ElMessage.error('请选择增量字段')
-    return false
-  }
+  applyIncrementalDefaults()
   return true
 }
 
@@ -971,6 +1042,7 @@ const loadDatasetSyncTask = async id => {
   if (task) {
     Object.assign(syncTask, task)
   }
+  applyIncrementalDefaults()
   syncLogs.value = await getDatasetSyncLogs(id)
   if (syncRunning.value) {
     startSyncPolling()
@@ -987,6 +1059,7 @@ const refreshDatasetSyncState = async () => {
   if (task) {
     Object.assign(syncTask, task)
   }
+  applyIncrementalDefaults()
   syncLogs.value = await getDatasetSyncLogs(currentDatasetId.value)
   if (!syncRunning.value) {
     stopSyncPolling()
@@ -1022,6 +1095,7 @@ const persistDatasetSync = async id => {
   if (!validateSyncSetting()) {
     throw new Error('invalid sync setting')
   }
+  applyIncrementalDefaults()
   if (syncTask.syncRate === 'SIMPLE_CRON') {
     refreshSimpleCron()
   }
@@ -2040,39 +2114,26 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
           </el-tree-select>
           <div v-if="obOracleDataset" class="dataset-sync-setting">
             <div class="sync-row">
-              <span>连接模式</span>
-              <el-radio-group v-model="syncMode">
+              <span>读取方式</span>
+              <el-radio-group v-model="syncMode" @change="syncModeChange">
                 <el-radio :value="0">直连</el-radio>
-                <el-radio :value="1">同步</el-radio>
+                <el-radio :value="1">缓存</el-radio>
               </el-radio-group>
             </div>
             <template v-if="syncMode === 1">
               <div class="sync-row">
-                <span>同步方式</span>
-                <el-radio-group v-model="syncTask.updateType">
-                  <el-radio value="all_scope">全量</el-radio>
+                <span>更新方式</span>
+                <el-radio-group v-model="syncTask.updateType" @change="syncUpdateTypeChange">
                   <el-radio value="add_scope">增量</el-radio>
+                  <el-radio value="all_scope">全量</el-radio>
                 </el-radio-group>
               </div>
-              <el-select
-                v-if="syncTask.updateType === 'add_scope'"
-                v-model="syncTask.incrementalFieldId"
-                class="sync-control"
-                placeholder="选择增量字段"
-              >
-                <el-option
-                  v-for="field in incrementalFieldOptions"
-                  :key="field.id"
-                  :label="field.name"
-                  :value="field.id"
-                />
-              </el-select>
               <div class="sync-row">
-                <span>频率</span>
+                <span>更新频率</span>
                 <el-radio-group v-model="syncTask.syncRate" @change="syncRateChange">
                   <el-radio value="RIGHTNOW">手动</el-radio>
-                  <el-radio value="SIMPLE_CRON">周期</el-radio>
-                  <el-radio value="CRON">Cron</el-radio>
+                  <el-radio value="SIMPLE_CRON">定时</el-radio>
+                  <el-radio v-if="syncTask.syncRate === 'CRON'" value="CRON">表达式</el-radio>
                 </el-radio-group>
               </div>
               <div v-if="syncTask.syncRate === 'SIMPLE_CRON'" class="sync-cron">
@@ -2092,60 +2153,10 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
                   <el-option label="天" value="day" />
                 </el-select>
               </div>
-              <el-input
-                v-if="syncTask.syncRate === 'CRON'"
-                v-model="syncTask.cron"
-                class="sync-control"
-                placeholder="Cron 表达式"
-              />
-              <div v-if="syncTask.updateType === 'add_scope'" class="sync-options">
-                <div class="sync-option">
-                  <span>全量校准(小时)</span>
-                  <el-input-number
-                    v-model="syncTask.fullSyncIntervalHours"
-                    :min="0"
-                    :max="720"
-                    controls-position="right"
-                  />
-                </div>
-                <div class="sync-option">
-                  <span>任务超时(分钟)</span>
-                  <el-input-number
-                    v-model="syncTask.taskTimeoutMinutes"
-                    :min="0"
-                    :max="1440"
-                    controls-position="right"
-                  />
-                </div>
+              <div class="sync-summary">
+                <span>{{ syncMethodText }}</span>
+                <span>{{ syncStatusText }}</span>
               </div>
-              <div class="sync-options">
-                <div class="sync-option">
-                  <span>缓存过期(小时)</span>
-                  <el-input-number
-                    v-model="syncTask.cacheExpireHours"
-                    :min="0"
-                    :max="720"
-                    controls-position="right"
-                  />
-                </div>
-                <div class="sync-option">
-                  <span>失败告警</span>
-                  <el-input-number
-                    v-model="syncTask.failureWarnThreshold"
-                    :min="0"
-                    :max="20"
-                    controls-position="right"
-                  />
-                </div>
-              </div>
-              <el-checkbox
-                v-model="syncTask.verifyEnabled"
-                class="sync-check"
-                :true-label="1"
-                :false-label="0"
-              >
-                同步后对账
-              </el-checkbox>
               <el-button
                 class="sync-now"
                 secondary
@@ -2153,32 +2164,72 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
                 :disabled="!currentDatasetId || syncRunning"
                 @click="executeDatasetSyncNow"
               >
-                {{ syncRunning ? '同步中' : '立即同步' }}
+                {{ syncRunning ? '更新中' : '立即更新' }}
               </el-button>
-              <div class="sync-status">
-                <span>{{ syncStatusText }}</span>
+              <div class="sync-status" v-if="syncTask.lastExecTime || latestSyncLog">
+                <span v-if="latestSyncLog">{{ latestSyncLog.rowCount || 0 }} 行</span>
                 <span v-if="syncTask.lastExecTime">{{
                   dayjs(syncTask.lastExecTime).format('YYYY-MM-DD HH:mm:ss')
                 }}</span>
               </div>
-              <div v-if="syncTask.incrementalLastValue" class="sync-watermark">
-                水位：{{ syncTask.incrementalLastValue }}
-              </div>
-              <div v-if="syncVerifyText" class="sync-watermark">
-                {{ syncVerifyText }}
-              </div>
-              <div v-if="syncTask.lastSourceRowCount !== undefined" class="sync-watermark">
-                源端：{{ syncTask.lastSourceRowCount || 0 }}，缓存：{{
-                  syncTask.lastCacheRowCount || 0
-                }}
-              </div>
-              <div v-if="syncTask.consecutiveFailures" class="sync-watermark">
-                连续失败：{{ syncTask.consecutiveFailures }}
-              </div>
-              <div v-if="latestSyncLog" class="sync-log">
-                <span>{{ latestSyncLog.taskStatus }}</span>
-                <span>{{ latestSyncLog.rowCount || 0 }} 行</span>
-                <span v-if="latestSyncLog.info">{{ latestSyncLog.info }}</span>
+              <el-tooltip v-if="latestSyncInfo" :content="latestSyncInfo" placement="top">
+                <div class="sync-log">{{ syncDetailText }}</div>
+              </el-tooltip>
+              <el-button
+                class="sync-advanced-toggle"
+                text
+                @click="syncAdvancedVisible = !syncAdvancedVisible"
+              >
+                {{ syncAdvancedVisible ? '收起' : '更多设置' }}
+              </el-button>
+              <div v-if="syncAdvancedVisible" class="sync-advanced">
+                <el-input
+                  v-if="syncTask.syncRate === 'CRON'"
+                  v-model="syncTask.cron"
+                  class="sync-control"
+                  placeholder="Cron 表达式"
+                />
+                <el-select
+                  v-if="syncTask.updateType === 'add_scope'"
+                  v-model="syncTask.incrementalFieldId"
+                  class="sync-control"
+                  placeholder="自动识别增量字段"
+                >
+                  <el-option
+                    v-for="field in incrementalFieldOptions"
+                    :key="field.id"
+                    :label="field.name"
+                    :value="field.id"
+                  />
+                </el-select>
+                <div class="sync-options">
+                  <div v-if="syncTask.updateType === 'add_scope'" class="sync-option">
+                    <span>全量刷新间隔(小时)</span>
+                    <el-input-number
+                      v-model="syncTask.fullSyncIntervalHours"
+                      :min="0"
+                      :max="720"
+                      controls-position="right"
+                    />
+                  </div>
+                  <div class="sync-option">
+                    <span>超时(分钟)</span>
+                    <el-input-number
+                      v-model="syncTask.taskTimeoutMinutes"
+                      :min="0"
+                      :max="1440"
+                      controls-position="right"
+                    />
+                  </div>
+                </div>
+                <el-checkbox
+                  v-model="syncTask.verifyEnabled"
+                  class="sync-check"
+                  :true-label="1"
+                  :false-label="0"
+                >
+                  更新后校验
+                </el-checkbox>
               </div>
             </template>
           </div>
@@ -3477,6 +3528,30 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
           margin-top: 8px;
         }
 
+        .sync-summary {
+          min-height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-top: 8px;
+          padding: 0 2px;
+          font-size: 12px;
+          color: #646a73;
+
+          span:first-child {
+            min-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            color: #1f2329;
+          }
+
+          span:last-child {
+            flex: 0 0 auto;
+          }
+        }
+
         .sync-options {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -3504,8 +3579,7 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
         }
 
         .sync-status,
-        .sync-log,
-        .sync-watermark {
+        .sync-log {
           display: flex;
           gap: 8px;
           margin-top: 8px;
@@ -3519,11 +3593,11 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
           justify-content: space-between;
         }
 
-        .sync-log,
-        .sync-watermark {
+        .sync-log {
           overflow: hidden;
           white-space: nowrap;
           text-overflow: ellipsis;
+          color: #8f959e;
         }
 
         .sync-cron {
@@ -3538,6 +3612,19 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
           .sync-unit {
             flex: 1;
           }
+        }
+
+        .sync-advanced-toggle {
+          height: 24px;
+          margin-top: 6px;
+          padding: 0;
+          font-size: 12px;
+        }
+
+        .sync-advanced {
+          margin-top: 4px;
+          padding-top: 8px;
+          border-top: 1px dashed #dee0e3;
         }
       }
 

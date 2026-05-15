@@ -178,11 +178,26 @@ public class DatasetSyncUtils {
     public static String buildCacheWatermarkPredicate(DatasetTableFieldDTO field, String lastValue, String prefix, String suffix, String operator) {
         String column = prefix + StringUtils.defaultIfBlank(field.getDataeaseName(), field.getFieldShortName()) + suffix;
         String safeOperator = StringUtils.defaultIfBlank(operator, ">").trim();
-        if (Objects.equals(field.getDeExtractType(), 2) || Objects.equals(field.getDeExtractType(), 3)
-                || Objects.equals(field.getDeType(), 2) || Objects.equals(field.getDeType(), 3)) {
+        if (isNumericField(field) && isNumericLiteral(lastValue)) {
             return column + " " + safeOperator + " " + lastValue;
         }
         return column + " " + safeOperator + " '" + escapeSqlLiteral(lastValue) + "'";
+    }
+
+    public static boolean isWatermarkCompatible(DatasetTableFieldDTO field, String lastValue) {
+        if (field == null || StringUtils.isBlank(lastValue)) {
+            return false;
+        }
+        return !isNumericField(field) || isNumericLiteral(lastValue);
+    }
+
+    private static boolean isNumericField(DatasetTableFieldDTO field) {
+        return Objects.equals(field.getDeExtractType(), 2) || Objects.equals(field.getDeExtractType(), 3)
+                || Objects.equals(field.getDeType(), 2) || Objects.equals(field.getDeType(), 3);
+    }
+
+    private static boolean isNumericLiteral(String value) {
+        return StringUtils.defaultString(value).trim().matches("-?\\d+(\\.\\d+)?");
     }
 
     public static String buildCacheSelectSql(Long datasetGroupId, List<DatasetTableFieldDTO> fields, String prefix, String suffix, String schemaAlias) {

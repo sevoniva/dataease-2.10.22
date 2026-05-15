@@ -72,6 +72,18 @@ public class DatasetSyncUtilsTest {
     }
 
     @Test
+    public void cacheWatermarkPredicateQuotesStaleNonNumericWatermarkForNumericField() {
+        DatasetTableFieldDTO numberField = field(1L, "ID", "主键ID", "f_id", 2, ExtFieldConstant.EXT_NORMAL);
+
+        assertFalse(DatasetSyncUtils.isWatermarkCompatible(numberField, "2026-05-15 09:35:00.0"));
+        assertTrue(DatasetSyncUtils.isWatermarkCompatible(numberField, "100"));
+        assertEquals(
+                "\"f_id\" < '2026-05-15 09:35:00.0'",
+                DatasetSyncUtils.buildCacheWatermarkPredicate(numberField, "2026-05-15 09:35:00.0", "\"", "\"", "<")
+        );
+    }
+
+    @Test
     public void schemaHashChangesWhenSelectedFieldShapeChanges() {
         DatasetTableFieldDTO id = field(1L, "ID", "ID", "f_id", 2, ExtFieldConstant.EXT_NORMAL);
         DatasetTableFieldDTO name = field(2L, "NAME", "名称", "f_name", 0, ExtFieldConstant.EXT_NORMAL);

@@ -102,7 +102,12 @@ public class DatasetSyncTaskManage {
             record.setCacheExpireHours(Objects.requireNonNullElse(task.getCacheExpireHours(), exists.getCacheExpireHours()));
             record.setTaskTimeoutMinutes(Objects.requireNonNullElse(task.getTaskTimeoutMinutes(), exists.getTaskTimeoutMinutes()));
             record.setFailureWarnThreshold(Objects.requireNonNullElse(task.getFailureWarnThreshold(), exists.getFailureWarnThreshold()));
-            if (StringUtils.isBlank(record.getIncrementalLastValue())) {
+            boolean incrementalConfigChanged = !StringUtils.equalsIgnoreCase(record.getUpdateType(), exists.getUpdateType())
+                    || !Objects.equals(record.getIncrementalFieldId(), exists.getIncrementalFieldId());
+            if (incrementalConfigChanged) {
+                record.setIncrementalLastValue(null);
+                record.setSchemaHash(null);
+            } else if (StringUtils.isBlank(record.getIncrementalLastValue())) {
                 record.setIncrementalLastValue(exists.getIncrementalLastValue());
             }
             taskMapper.updateById(record);
@@ -320,6 +325,10 @@ public class DatasetSyncTaskManage {
         }
         if (StringUtils.isBlank(record.getUpdateType())) {
             record.setUpdateType(DEFAULT_UPDATE_TYPE);
+        }
+        if (!StringUtils.equalsIgnoreCase(record.getUpdateType(), "add_scope")) {
+            record.setIncrementalFieldId(null);
+            record.setIncrementalLastValue(null);
         }
         if (StringUtils.isBlank(record.getSyncRate())) {
             record.setSyncRate(DatasourceTaskServer.ScheduleType.RIGHTNOW.name());

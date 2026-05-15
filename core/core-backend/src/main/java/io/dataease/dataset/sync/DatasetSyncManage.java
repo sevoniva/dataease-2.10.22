@@ -234,7 +234,7 @@ public class DatasetSyncManage {
     private SyncResult syncIncremental(SyncContext context, CoreDatasetSyncTask task, long syncStartTime) throws Exception {
         assertTaskRunnable(task, syncStartTime);
         DatasetTableFieldDTO incrementalField = incrementalField(context.dataset, task);
-        if (incrementalField == null) {
+        if (incrementalField == null || !DatasetSyncUtils.isWatermarkCompatible(incrementalField, task.getIncrementalLastValue())) {
             return syncFull(context, task, syncStartTime);
         }
         int incrementalIndex = incrementalIndex(context.checkedFields, incrementalField);
@@ -467,13 +467,30 @@ public class DatasetSyncManage {
 
     private DatasetTableFieldDTO incrementalField(DatasetGroupInfoDTO dataset, CoreDatasetSyncTask task) {
         if (!StringUtils.equalsIgnoreCase(task.getUpdateType(), DatasourceServer.UpdateType.add_scope.name())
-                || task.getIncrementalFieldId() == null) {
+                || dataset == null || dataset.getAllFields() == null) {
             return null;
         }
+        if (task.getIncrementalFieldId() != null) {
+            DatasetTableFieldDTO field = dataset.getAllFields().stream()
+                    .filter(item -> Objects.equals(item.getId(), task.getIncrementalFieldId()))
+                    .filter(item -> Objects.equals(item.getExtField(), ExtFieldConstant.EXT_NORMAL))
+                    .findFirst()
+                    .orElse(null);
+            if (field != null) {
+                return field;
+            }
+        }
         return dataset.getAllFields().stream()
-                .filter(field -> Objects.equals(field.getId(), task.getIncrementalFieldId()))
+                .filter(field -> Objects.equals(field.getChecked(), true))
                 .filter(field -> Objects.equals(field.getExtField(), ExtFieldConstant.EXT_NORMAL))
+                .filter(field -> Objects.equals(field.getDeExtractType(), 1) || Objects.equals(field.getDeType(), 1))
                 .findFirst()
+                .or(() -> dataset.getAllFields().stream()
+                        .filter(field -> Objects.equals(field.getChecked(), true))
+                        .filter(field -> Objects.equals(field.getExtField(), ExtFieldConstant.EXT_NORMAL))
+                        .filter(field -> Objects.equals(field.getDeExtractType(), 2) || Objects.equals(field.getDeExtractType(), 3)
+                                || Objects.equals(field.getDeType(), 2) || Objects.equals(field.getDeType(), 3))
+                        .findFirst())
                 .orElse(null);
     }
 
