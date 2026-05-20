@@ -4,7 +4,6 @@ target=$2
 
 DE_BASE=/opt
 DE_RUNNING_BASE=${DE_BASE}/dataease2.0
-need_init_apisix=false
 compose_files="-f docker-compose.yml"
 compose_cmd="docker-compose"
 server_url=""
@@ -54,10 +53,6 @@ function _generate_compose_file_args() {
       return
    fi
    if [[ $DE_INSTALL_MODE != "community" ]];then
-      if [[ -f $DE_RUNNING_BASE/docker-compose-apisix.yml ]] && [[ "$DE_EXTERNAL_APISIX" != "true" ]];then
-         compose_files="${compose_files} -f docker-compose-apisix.yml"
-      fi
-      
       if [[ -f $DE_RUNNING_BASE/docker-compose-task.yml ]] && [[ "$DE_EXTERNAL_SYNC_TASK" != "true" ]];then
          compose_files="${compose_files} -f docker-compose-task.yml"
       fi
@@ -65,25 +60,6 @@ function _generate_compose_file_args() {
       if [[ -f $DE_RUNNING_BASE/docker-compose-playwright.yml ]] && [[ "$DE_EXTERNAL_PLAYWRIGHT" != "true" ]];then
          compose_files="${compose_files} -f docker-compose-playwright.yml"
       fi
-   fi
-}
-function _check_apisix_init() {
-   if [[ "$DE_INTERNAL_LITE" == "true" ]];then
-      return
-   fi
-   if [[ $DE_INSTALL_MODE != "community" ]] && [[ "$DE_EXTERNAL_APISIX" != "true" ]];then
-      _prepare_apisix
-   fi
-}
-function _prepare_apisix() {
-   if [[ -z $DE_APISIX_KEY ]];then
-      need_init_apisix=true
-      DE_APISIX_KEY=$(head -c 32 /dev/urandom | base64 | sed 's#/#+#g')
-      export DE_APISIX_KEY=$DE_APISIX_KEY
-      cd $DE_RUNNING_BASE
-      env | grep DE_ >.env
-      sed -i -e "s/DE_APISIX_KEY/${DE_APISIX_KEY}/g" $DE_RUNNING_BASE/apisix/apisix_conf/config.yaml
-      sed -i -e "s/DE_APISIX_KEY/${DE_APISIX_KEY}/g" $DE_RUNNING_BASE/conf/application.yml
    fi
 }
 function _healthcheck() {
@@ -226,7 +202,6 @@ function status() {
 }
 function start() {
    echo
-   _check_apisix_init
    _generate_compose_file_args
    cd ${DE_RUNNING_BASE}
    ${compose_cmd} ${compose_files} up -d

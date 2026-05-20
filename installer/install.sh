@@ -28,7 +28,6 @@ function prop {
 function check_and_prepare_env_params() {
    log "当前时间 : $(date)"
    log_title "检查安装环境并初始化环境变量"
-   DE_APISIX_PORT=9080
 
    cd ${CURRENT_DIR}
    if [ -f /usr/bin/dectl ]; then
@@ -113,10 +112,8 @@ function prepare_de_run_base() {
    mkdir -p ${DE_RUN_BASE}/data/{mysql,static-resource,appearance,exportData,font,i18n}
 
    if [[ "${DE_INTERNAL_LITE}" != "true" ]]; then
-      mkdir -p ${DE_RUN_BASE}/data/{etcd_data,plugin}
-      mkdir -p ${DE_RUN_BASE}/apisix/logs
       mkdir -p ${DE_RUN_BASE}/task/logs
-      chmod 777 ${DE_RUN_BASE}/apisix/logs ${DE_RUN_BASE}/data/etcd_data ${DE_RUN_BASE}/task/logs
+      chmod 777 ${DE_RUN_BASE}/task/logs
    fi
 
    if [ "${DE_EXTERNAL_MYSQL}" = "false" ]; then
@@ -330,10 +327,6 @@ function start_de_service() {
    systemctl start dataease 2>&1 | tee -a ${CURRENT_DIR}/install.log
 
    access_port=$DE_PORT
-   if [[ $DE_INSTALL_MODE != "community" ]] && [[ "$DE_INTERNAL_LITE" != "true" ]];then
-      access_port=$DE_APISIX_PORT
-   fi
-
    echo
    if [[ $INSTALL_TYPE != "upgrade" ]];then
       echo -e "======================= 安装完成 =======================\n" 2>&1 | tee -a ${CURRENT_DIR}/install.log

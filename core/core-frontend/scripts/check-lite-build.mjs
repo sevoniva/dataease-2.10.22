@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
+const repoRoot = path.resolve(root, '..', '..')
 const dist = path.join(root, 'dist')
 
 const blockedFileNamePatterns = [
@@ -38,6 +39,61 @@ function fail(message, details = []) {
   details.slice(0, 20).forEach(item => console.error(` - ${path.relative(root, item)}`))
   process.exit(1)
 }
+
+function assertMissing(relativePath, message) {
+  const fullPath = path.join(repoRoot, relativePath)
+  if (fs.existsSync(fullPath)) {
+    fail(message, [fullPath])
+  }
+}
+
+function assertFileDoesNotContain(relativePath, patterns, message) {
+  const fullPath = path.join(repoRoot, relativePath)
+  if (!fs.existsSync(fullPath)) {
+    return
+  }
+  const content = fs.readFileSync(fullPath, 'utf8')
+  const matched = patterns.some(pattern => pattern.test(content))
+  if (matched) {
+    fail(message, [fullPath])
+  }
+}
+
+function assertFileContains(relativePath, patterns, message) {
+  const fullPath = path.join(repoRoot, relativePath)
+  if (!fs.existsSync(fullPath)) {
+    fail(message, [fullPath])
+  }
+  const content = fs.readFileSync(fullPath, 'utf8')
+  const matched = patterns.every(pattern => pattern.test(content))
+  if (!matched) {
+    fail(message, [fullPath])
+  }
+}
+
+assertMissing('installer/dataease/docker-compose-apisix.yml', '内部轻量安装包不应包含 APISIX Compose 模板')
+assertMissing('installer/dataease/apisix', '内部轻量安装包不应包含 APISIX 配置目录')
+assertMissing('core/core-frontend/src/api/plugin.ts', '内部轻量前端不应保留远程插件 API')
+assertFileDoesNotContain(
+  'core/core-backend/src/main/java/io/dataease/share/server/XpackShareServer.java',
+  [/ConditionalOnProperty/, /internal-lite/],
+  '分享接口必须在内部轻量模式下保留'
+)
+assertFileDoesNotContain(
+  'core/core-backend/src/main/java/io/dataease/share/server/ShareTicketServer.java',
+  [/ConditionalOnProperty/, /internal-lite/],
+  '分享 ticket 接口必须在内部轻量模式下保留'
+)
+assertFileContains(
+  'core/core-frontend/src/components/plugin/src/index.vue',
+  [/defineExpose/, /load-ds-plugin/, /load-plugin-category/],
+  '插件兼容组件必须保留空实现事件，避免影响现有页面'
+)
+assertFileDoesNotContain(
+  'core/core-frontend/src/components/plugin/src/index.vue',
+  [/DEXPack/, /xpackModelApi/, /loadDistributed/, /\/xpackComponent\/content/],
+  '插件兼容组件不应加载远程 xpack 资源'
+)
 
 if (!fs.existsSync(dist)) {
   fail('dist 不存在，请先执行 npm run build:base 或 npm run build:distributed')
