@@ -6,7 +6,6 @@ import FunctionCfg from '@/views/chart/components/editor/editor-senior/component
 import ScrollCfg from '@/views/chart/components/editor/editor-senior/components/ScrollCfg.vue'
 import AssistLine from '@/views/chart/components/editor/editor-senior/components/AssistLine.vue'
 import Threshold from '@/views/chart/components/editor/editor-senior/components/Threshold.vue'
-import MapMapping from '@/views/chart/components/editor/editor-senior/components/MapMapping.vue'
 import CollapseSwitchItem from '@/components/collapse-switch-item/src/CollapseSwitchItem.vue'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { computed, PropType, ref, toRefs, watch } from 'vue'
@@ -52,7 +51,6 @@ const emit = defineEmits([
   'onAssistLineChange',
   'onScrollCfgChange',
   'onThresholdChange',
-  'onMapMappingChange',
   'onBubbleAnimateChange'
 ])
 
@@ -147,10 +145,6 @@ const onThresholdChange = val => {
   emit('onThresholdChange', val)
 }
 
-const onMapMappingChange = (val, useGlobalAreaMapping) => {
-  emit('onMapMappingChange', val, useGlobalAreaMapping)
-}
-
 const onBubbleAnimateChange = val => {
   emit('onBubbleAnimateChange', val)
 }
@@ -181,7 +175,6 @@ const linkageSetOpen = () => {
 }
 
 const SENIOR_PROP: EditorProperty[] = [
-  'map-mapping',
   'function-cfg',
   'assist-line',
   'scroll-cfg',
@@ -257,21 +250,6 @@ const removeJumpSenior = () => {
               :chart="props.chart"
               :property-inner="propertyInnerAll['function-cfg']"
               @onFunctionCfgChange="onFunctionCfgChange"
-            />
-          </el-collapse-item>
-
-          <el-collapse-item
-            :effect="themes"
-            v-if="showProperties('map-mapping')"
-            name="mapMapping"
-            :title="t('chart.place_name_mapping')"
-            @modelChange="onFunctionCfgChange"
-          >
-            <map-mapping
-              :themes="themes"
-              :chart="props.chart"
-              :property-inner="propertyInnerAll['function-cfg']"
-              @onMapMappingChange="onMapMappingChange"
             />
           </el-collapse-item>
 

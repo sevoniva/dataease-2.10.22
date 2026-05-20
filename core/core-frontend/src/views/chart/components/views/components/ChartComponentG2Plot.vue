@@ -13,7 +13,6 @@ import {
 import { getData } from '@/api/chart'
 import { ChartLibraryType } from '@/views/chart/components/js/panel/types'
 import { G2PlotChartView } from '@/views/chart/components/js/panel/types/impl/g2plot'
-import type { L7PlotChartView } from '@/views/chart/components/js/panel/types/impl/l7plot'
 import chartViewManager from '@/views/chart/components/js/panel'
 import { dvMainStoreWithOut } from '@/store/modules/data-visualization/dvMain'
 import ViewTrackBar from '@/components/visualization/ViewTrackBar.vue'
@@ -26,7 +25,6 @@ import { customAttrTrans, customStyleTrans, recursionTransObj } from '@/utils/ca
 import { deepCopy, isMobile } from '@/utils/utils'
 import { isDashboard, trackBarStyleCheck } from '@/utils/canvasUtils'
 import { useEmitt } from '@/hooks/web/useEmitt'
-import type { L7ChartView } from '@/views/chart/components/js/panel/types/impl/l7'
 import { useI18n } from '@/hooks/web/useI18n'
 import { configEmptyDataStyle } from '@/views/chart/components/js/panel/common/common_antv'
 const { t } = useI18n()
@@ -338,10 +336,10 @@ const renderChart = async (view, callback?) => {
   recursionTransObj(customStyleTrans, chart.customStyle, scale.value, terminal.value)
   switch (chartView.library) {
     case ChartLibraryType.L7_PLOT:
-      await renderL7Plot(chart, chartView as L7PlotChartView<any, any>, callback)
+      emit('resetLoading')
       break
     case ChartLibraryType.L7:
-      await renderL7(chart, chartView as L7ChartView<any, any>, callback)
+      emit('resetLoading')
       break
     case ChartLibraryType.G2_PLOT:
       await renderG2Plot(chart, chartView as G2PlotChartView<any, any>)
@@ -385,7 +383,7 @@ let gadmName
 const chartContainer = ref<HTMLElement>(null)
 let scope
 let mapTimer: number
-const renderL7Plot = async (chart: ChartObj, chartView: L7PlotChartView<any, any>, callback) => {
+const renderL7Plot = async (chart: ChartObj, chartView: any, callback) => {
   const map = parseJson(chart.customAttr).map
   let areaId = map.id
   country.value = areaId.slice(0, 3)
@@ -422,7 +420,7 @@ const renderL7Plot = async (chart: ChartObj, chartView: L7PlotChartView<any, any
 }
 
 let mapL7Timer: number
-const renderL7 = async (chart: ChartObj, chartView: L7ChartView<any, any>, callback) => {
+const renderL7 = async (chart: ChartObj, chartView: any, callback) => {
   mapL7Timer && clearTimeout(mapL7Timer)
   mapL7Timer = setTimeout(async () => {
     chart.container = containerId
@@ -715,35 +713,7 @@ const preparePicture = async id => {
     return
   }
   const chartView = chartViewManager.getChartView(curView.render, curView.type)
-  if (chartView.library === ChartLibraryType.L7_PLOT) {
-    myChart
-      .getScene()
-      .exportMap('png')
-      .then(res => canvas2Picture(res, false))
-  } else if (chartView.library === ChartLibraryType.L7) {
-    const scene = myChart.getScene()
-    const { ExportImage } = await import('@antv/l7')
-    const zoom = new ExportImage({
-      onExport: (base64: string) => {
-        canvas2Picture(base64, true)
-      }
-    })
-    scene.addControl(zoom)
-    zoom.hide()
-    // 天地图
-    const getTmapImage = async () => {
-      const res = await scene.exportPng('png')
-      canvas2Picture(res, true)
-    }
-    zoom
-      .getImage()
-      .then(res => {
-        canvas2Picture(res, true)
-      })
-      .catch(() => {
-        getTmapImage()
-      })
-  }
+  void chartView
 }
 const unPreparePicture = id => {
   if (id !== curView?.id) {

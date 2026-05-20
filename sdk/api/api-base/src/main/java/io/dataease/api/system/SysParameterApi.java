@@ -1,7 +1,6 @@
 package io.dataease.api.system;
 
 import com.github.xiaoymin.knife4j.annotations.ApiSupport;
-import io.dataease.api.system.request.OnlineMapEditor;
 import io.dataease.api.system.request.SQLBotConfigCreator;
 import io.dataease.api.system.vo.SQLBotConfigVO;
 import io.dataease.api.system.vo.SettingItemVO;
@@ -27,18 +26,6 @@ public interface SysParameterApi {
     @Parameter(name = "key", description = "配置key", required = true, in = ParameterIn.PATH)
     @GetMapping("/singleVal/{key}")
     String singleVal(@PathVariable("key") String key);
-
-    @Operation(summary = "保存在线地图")
-    @PostMapping("/saveOnlineMap")
-    void saveOnlineMap(@RequestBody OnlineMapEditor editor);
-
-    @Operation(summary = "查询在线地图")
-    @GetMapping("/queryOnlineMap")
-    OnlineMapEditor queryOnlineMap();
-
-    @Operation(summary = "查询在线地图")
-    @GetMapping("/queryOnlineMap/{type}")
-    OnlineMapEditor queryOnlineMapByMapType(@PathVariable("type") String type);
 
     @Operation(summary = "查询基础设置(社区版)")
     @GetMapping("basic/query")

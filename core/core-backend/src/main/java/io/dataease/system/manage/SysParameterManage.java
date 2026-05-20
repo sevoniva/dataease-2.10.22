@@ -1,7 +1,6 @@
 package io.dataease.system.manage;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import io.dataease.api.system.request.OnlineMapEditor;
 import io.dataease.api.system.request.SQLBotConfigCreator;
 import io.dataease.api.system.vo.SettingItemVO;
 import io.dataease.api.system.vo.ShareBaseVO;
@@ -33,8 +32,6 @@ public class SysParameterManage {
     @Value("${dataease.demo-tips-content:#{null}}")
     private String demoTipsContent;
 
-    private static final String MAP_KEY_PREFIX = "map.";
-
     @Resource
     private CoreSysSettingMapper coreSysSettingMapper;
 
@@ -52,73 +49,6 @@ public class SysParameterManage {
         }
         return null;
     }
-
-    public OnlineMapEditor queryOnlineMap(String mapType) {
-        if (StringUtils.isBlank(mapType)) {
-            List<CoreSysSetting> typeList = groupList(MAP_KEY_PREFIX + "mapType");
-            mapType = "gaode";
-            if (!CollectionUtils.isEmpty(typeList)) {
-                mapType = typeList.getFirst().getPval();
-            }
-        }
-        String prefix;
-        if (!StringUtils.equals(mapType, "gaode")) {
-            prefix = mapType + "." + MAP_KEY_PREFIX;
-        } else {
-            prefix = MAP_KEY_PREFIX;
-        }
-        var editor = new OnlineMapEditor();
-        List<String> fields = BeanUtils.getFieldNames(OnlineMapEditor.class);
-        Map<String, String> mapVal = groupVal(prefix);
-        fields.forEach(field -> {
-            String val = mapVal.get(prefix + field);
-            if (StringUtils.isNotBlank(val)) {
-                BeanUtils.setFieldValueByName(editor, field, val, String.class);
-            }
-        });
-
-        editor.setMapType(mapType);
-
-        return editor;
-    }
-
-    public void saveOnlineMap(OnlineMapEditor editor) {
-        String mapType = editor.getMapType();
-        if (StringUtils.isBlank(mapType)) {
-            List<CoreSysSetting> typeList = groupList(MAP_KEY_PREFIX + "mapType");
-            mapType = "gaode";
-            if (!CollectionUtils.isEmpty(typeList)) {
-                mapType = typeList.getFirst().getPval();
-            }
-        }
-
-        List<String> fieldNames = BeanUtils.getFieldNames(OnlineMapEditor.class);
-        String finalMapType = mapType;
-        fieldNames.forEach(field -> {
-            String prefix = MAP_KEY_PREFIX;
-            if (!(StringUtils.equals(field, "mapType") || StringUtils.equals(finalMapType, "gaode"))) {
-                prefix = finalMapType + "." + MAP_KEY_PREFIX;
-            }
-
-            QueryWrapper<CoreSysSetting> queryWrapper = new QueryWrapper<>();
-            queryWrapper.eq("pkey", prefix + field);
-            CoreSysSetting sysSetting = coreSysSettingMapper.selectOne(queryWrapper);
-            var val = (String) BeanUtils.getFieldValueByName(field, editor);
-            if (ObjectUtils.isEmpty(sysSetting)) {
-                sysSetting = new CoreSysSetting();
-                sysSetting.setId(IDUtils.snowID());
-                sysSetting.setPkey(prefix + field);
-                sysSetting.setPval(val == null ? "" : val);
-                sysSetting.setType("text");
-                sysSetting.setSort(1);
-                coreSysSettingMapper.insert(sysSetting);
-                return;
-            }
-            sysSetting.setPval(val);
-            coreSysSettingMapper.updateById(sysSetting);
-        });
-    }
-
 
     public Map<String, String> groupVal(String groupKey) {
         QueryWrapper<CoreSysSetting> queryWrapper = new QueryWrapper<>();

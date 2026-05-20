@@ -72,7 +72,6 @@ public class SwaggerConfig {
     public GroupedOpenApi basicSettingApi() {
         String[] packageArray = {
                 "io.dataease.system",
-                "io.dataease.map",
         };
         return GroupedOpenApi.builder().group("5-permission").displayName("系统设置").packagesToScan(packageArray).build();
     }

@@ -1,10 +1,7 @@
 import { isNumber } from 'lodash-es'
 import { DEFAULT_TITLE_STYLE } from '../editor/util/chart'
 import { equalsAny, includesAny } from '../editor/util/StringUtils'
-import { FeatureCollection } from '@antv/l7plot/dist/esm/plots/choropleth/types'
-import { useMapStoreWithOut } from '@/store/modules/map'
-import { getGeoJson } from '@/api/map'
-import { computed, toRaw } from 'vue'
+import { computed } from 'vue'
 import { Options } from '@antv/g2plot/esm'
 import { PickOptions } from '@antv/g2plot/esm/core/plot'
 import { innerExportDataSetDetails, innerExportDetails } from '@/api/chart'
@@ -499,20 +496,6 @@ export const isParent = (type: any, parentType: any) => {
     _type = _type.__proto__
   }
   return false
-}
-
-export const getGeoJsonFile = async (
-  areaId: string,
-  useGlobalAreaMapping = false
-): Promise<FeatureCollection> => {
-  const mapStore = useMapStoreWithOut()
-  let geoJson = mapStore.mapCache[areaId]
-  if (!geoJson || useGlobalAreaMapping) {
-    const res = await getGeoJson(areaId)
-    geoJson = res?.data
-    mapStore.setMap({ id: areaId, geoJson })
-  }
-  return toRaw(geoJson)
 }
 
 const getExcelDownloadRequest = (data, type?) => {

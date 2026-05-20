@@ -1,7 +1,6 @@
 package io.dataease.system.server;
 
 import io.dataease.api.system.SysParameterApi;
-import io.dataease.api.system.request.OnlineMapEditor;
 import io.dataease.api.system.request.SQLBotConfigCreator;
 import io.dataease.api.system.vo.SQLBotConfigVO;
 import io.dataease.api.system.vo.SettingItemVO;
@@ -38,24 +37,6 @@ public class SysParameterServer implements SysParameterApi {
     @Override
     public String singleVal(String key) {
         return sysParameterManage.singleVal(key);
-    }
-
-    @Override
-    public void saveOnlineMap(OnlineMapEditor editor) {
-        assertFullModeFeature();
-        sysParameterManage.saveOnlineMap(editor);
-    }
-
-    @Override
-    public OnlineMapEditor queryOnlineMap() {
-        assertFullModeFeature();
-        return sysParameterManage.queryOnlineMap(null);
-    }
-
-    @Override
-    public OnlineMapEditor queryOnlineMapByMapType(String type) {
-        assertFullModeFeature();
-        return sysParameterManage.queryOnlineMap(type);
     }
 
     @Override
