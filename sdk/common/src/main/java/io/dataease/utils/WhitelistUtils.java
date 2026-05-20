@@ -29,7 +29,6 @@ public class WhitelistUtils {
             "/symmetricKey",
             "/index.html",
             "/model",
-            "/xpackModel",
             "/swagger-resources",
             "/doc.html",
             "/panel.html",
@@ -74,8 +73,6 @@ public class WhitelistUtils {
                 || StringUtils.startsWithAny(requestURI, "/static-resource/")
                 || StringUtils.startsWithAny(requestURI, "/appearance/image/")
                 || StringUtils.startsWithAny(requestURI, "/share/proxyInfo")
-                || StringUtils.startsWithAny(requestURI, "/xpackComponent/content")
-                || StringUtils.startsWithAny(requestURI, "/xpackComponent/pluginStaticInfo")
                 || StringUtils.startsWithAny(requestURI, "/geo/")
                 || StringUtils.startsWithAny(requestURI, "/customGeo/")
                 || StringUtils.startsWithAny(requestURI, "/websocket")

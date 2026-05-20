@@ -50,7 +50,6 @@ import { copyStoreWithOut } from '@/store/modules/data-visualization/copy'
 import TabsGroup from '@/custom-component/component-group/TabsGroup.vue'
 import DeResourceGroupOpt from '@/views/common/DeResourceGroupOpt.vue'
 import OuterParamsSet from '@/components/visualization/OuterParamsSet.vue'
-import { XpackComponent } from '@/components/plugin'
 import DbMoreComGroup from '@/custom-component/component-group/DbMoreComGroup.vue'
 import { useCache } from '@/hooks/web/useCache'
 import DeFullscreen from '@/components/visualization/common/DeFullscreen.vue'
@@ -821,8 +820,7 @@ const initOpenHandler = newWindow => {
     <outer-params-set ref="outerParamsSetRef"> </outer-params-set>
   </div>
   <de-fullscreen show-position="edit" ref="fullScreeRef"></de-fullscreen>
-  <XpackComponent ref="openHandler" jsname="L2NvbXBvbmVudC9lbWJlZGRlZC1pZnJhbWUvT3BlbkhhbmRsZXI=" />
-  <de-app-apply
+    <de-app-apply
     ref="resourceAppOpt"
     :component-data="componentData"
     :dv-info="dvInfo"

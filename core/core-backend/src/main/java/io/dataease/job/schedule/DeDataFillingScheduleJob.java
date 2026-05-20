@@ -3,14 +3,13 @@ package io.dataease.job.schedule;
 import io.dataease.license.utils.LicenseUtil;
 import io.dataease.utils.CommonBeanFactory;
 import io.dataease.utils.LogUtil;
-import jakarta.annotation.Resource;
 import org.quartz.*;
 import org.springframework.stereotype.Component;
 
 import java.util.Objects;
 
 @Component
-public class DeXpackScheduleJob implements Job {
+public class DeDataFillingScheduleJob implements Job {
 
 
     @Override
@@ -18,7 +17,7 @@ public class DeXpackScheduleJob implements Job {
         Trigger trigger = jobExecutionContext.getTrigger();
         JobKey jobKey = trigger.getJobKey();
         JobDataMap jobDataMap = jobExecutionContext.getJobDetail().getJobDataMap();
-        DeTaskExecutor deTaskExecutor = CommonBeanFactory.getBean(DeTaskExecutor.class);
+        DeDataFillingTaskExecutor deTaskExecutor = CommonBeanFactory.getBean(DeDataFillingTaskExecutor.class);
         assert deTaskExecutor != null;
         try {
             LicenseUtil.validate();

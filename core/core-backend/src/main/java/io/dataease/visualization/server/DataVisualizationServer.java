@@ -46,7 +46,6 @@ import io.dataease.extensions.datasource.dto.DatasetTableDTO;
 import io.dataease.extensions.datasource.vo.DatasourceConfiguration;
 import io.dataease.extensions.view.dto.ChartViewDTO;
 import io.dataease.i18n.Translator;
-import io.dataease.license.config.XpackInteract;
 import io.dataease.license.manage.CoreLicManage;
 import io.dataease.log.DeLog;
 import io.dataease.menu.dao.auto.entity.CoreMenu;
@@ -193,7 +192,6 @@ public class DataVisualizationServer implements DataVisualizationApi {
     @DeLinkPermit("#p0.id")
     @DeLog(id = "#p0.id", ot = LogOT.READ, stExp = "#p0.busiFlag")
     @Override
-    @XpackInteract(value = "dataVisualizationServer", original = true)
     public DataVisualizationVO findById(DataVisualizationBaseRequest request) {
         Long dvId = request.getId();
         String busiFlag = request.getBusiFlag();

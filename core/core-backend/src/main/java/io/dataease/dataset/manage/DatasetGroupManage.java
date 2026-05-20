@@ -31,7 +31,6 @@ import io.dataease.extensions.datasource.dto.DatasourceDTO;
 import io.dataease.extensions.datasource.model.SQLObj;
 import io.dataease.extensions.view.dto.SqlVariableDetails;
 import io.dataease.i18n.Translator;
-import io.dataease.license.config.XpackInteract;
 import io.dataease.license.utils.LicenseUtil;
 import io.dataease.model.BusiNodeRequest;
 import io.dataease.model.BusiNodeVO;
@@ -162,8 +161,6 @@ public class DatasetGroupManage {
         }
         return null;
     }
-
-    @XpackInteract(value = "authResourceTree", before = false)
     public void innerEdit(DatasetGroupInfoDTO datasetGroupInfoDTO) {
         checkName(datasetGroupInfoDTO);
         CoreDatasetGroup coreDatasetGroup = BeanUtils.copyBean(new CoreDatasetGroup(), datasetGroupInfoDTO);
@@ -171,16 +168,12 @@ public class DatasetGroupManage {
         coreDatasetGroupMapper.updateById(coreDatasetGroup);
         coreOptRecentManage.saveOpt(datasetGroupInfoDTO.getId(), OptConstants.OPT_RESOURCE_TYPE.DATASET, OptConstants.OPT_TYPE.UPDATE);
     }
-
-    @XpackInteract(value = "authResourceTree", before = false)
     public void innerSave(DatasetGroupInfoDTO datasetGroupInfoDTO) {
         checkName(datasetGroupInfoDTO);
         CoreDatasetGroup coreDatasetGroup = BeanUtils.copyBean(new CoreDatasetGroup(), datasetGroupInfoDTO);
         coreDatasetGroupMapper.insert(coreDatasetGroup);
         coreOptRecentManage.saveOpt(coreDatasetGroup.getId(), OptConstants.OPT_RESOURCE_TYPE.DATASET, OptConstants.OPT_TYPE.NEW);
     }
-
-    @XpackInteract(value = "authResourceTree", before = false)
     public DatasetGroupInfoDTO move(DatasetGroupInfoDTO datasetGroupInfoDTO) {
         checkName(datasetGroupInfoDTO);
         if (datasetGroupInfoDTO.getPid() != 0) {
@@ -211,8 +204,6 @@ public class DatasetGroupManage {
         }
         return false;
     }
-
-    @XpackInteract(value = "authResourceTree", before = false)
     public void delete(Long id) {
         CoreDatasetGroup coreDatasetGroup = coreDatasetGroupMapper.selectById(id);
         if (ObjectUtils.isEmpty(coreDatasetGroup)) {
@@ -237,9 +228,6 @@ public class DatasetGroupManage {
             }
         }
     }
-
-
-    @XpackInteract(value = "authResourceTree", replace = true, invalid = true)
     public List<BusiNodeVO> tree(BusiNodeRequest request) {
 
         QueryWrapper<Object> queryWrapper = new QueryWrapper<>();

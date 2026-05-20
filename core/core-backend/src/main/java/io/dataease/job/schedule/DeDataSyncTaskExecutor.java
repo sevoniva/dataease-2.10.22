@@ -1,6 +1,5 @@
 package io.dataease.job.schedule;
 
-import io.dataease.license.config.XpackInteract;
 import jakarta.annotation.Resource;
 import org.quartz.JobDataMap;
 import org.quartz.JobKey;
@@ -11,21 +10,17 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 import java.util.Map;
 
-@Component("deXpackDataSyncTaskExecutor")
-public class DeXpackDataSyncTaskExecutor {
+@Component("deDataSyncTaskExecutor")
+public class DeDataSyncTaskExecutor {
 
     private static final String SYNC_JOB_GROUP = "SYNC_TASK";
     private static final String SYNC_SIMPLE_JOB_GROUP = "SYNC_SIMPLE_TASK";
 
     @Resource
     private ScheduleManager scheduleManager;
-
-    @XpackInteract(value = "dataSyncTaskExecutor", replace = true)
     public boolean execute(Map<String, Object> taskData) {
         return false;
     }
-
-    @XpackInteract(value = "dataSyncTaskExecutor", replace = true)
     public void init() {
     }
 
@@ -49,7 +44,7 @@ public class DeXpackDataSyncTaskExecutor {
         jobDataMap.put("startTime", startTime);
         jobDataMap.put("endTime", endTime);
         jobDataMap.put("executeOnce", Boolean.FALSE);
-        scheduleManager.addOrUpdateCronJob(jobKey, triggerKey, DeXpackDataSyncTaskScheduleJob.class,
+        scheduleManager.addOrUpdateCronJob(jobKey, triggerKey, DeDataSyncTaskScheduleJob.class,
                 cron, new Date(startTime), endTime != null ? new Date(endTime) : null, jobDataMap);
     }
 
@@ -68,7 +63,7 @@ public class DeXpackDataSyncTaskExecutor {
         jobDataMap.put("taskId", taskId);
         jobDataMap.put("executeOnce", Boolean.FALSE);
         try {
-            scheduleManager.addOrUpdateSimpleJobForCustomTime(jobKey, triggerKey, DeXpackDataSyncTaskScheduleJob.class, new Date(startTime), endTime != null ? new Date(endTime) : null, period, jobDataMap);
+            scheduleManager.addOrUpdateSimpleJobForCustomTime(jobKey, triggerKey, DeDataSyncTaskScheduleJob.class, new Date(startTime), endTime != null ? new Date(endTime) : null, period, jobDataMap);
         } catch (SchedulerException e) {
             throw new RuntimeException(e);
         }

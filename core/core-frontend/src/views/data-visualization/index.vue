@@ -36,7 +36,6 @@ import { useCache } from '@/hooks/web/useCache'
 import RealTimeListTree from '@/components/data-visualization/RealTimeListTree.vue'
 import { interactiveStoreWithOut } from '@/store/modules/interactive'
 import { watermarkFind } from '@/api/watermark'
-import { XpackComponent } from '@/components/plugin'
 import { Base64 } from 'js-base64'
 import CanvasCacheDialog from '@/components/visualization/CanvasCacheDialog.vue'
 import { deepCopy } from '@/utils/utils'
@@ -374,8 +373,6 @@ const winMsgWebParamsHandle = msgInfo => {
 
 const loadFinish = ref(false)
 const newWindowFromDiv = ref(false)
-let p = null
-const XpackLoaded = () => p(true)
 onMounted(async () => {
   document.body.style.overflow = 'hidden'
   dvMainStore.setCurComponent({ component: null, index: null })
@@ -670,13 +667,7 @@ eventBus.on('tabSort', tabSort)
       </div>
     </el-container>
   </div>
-  <XpackComponent
-    jsname="L2NvbXBvbmVudC9lbWJlZGRlZC1pZnJhbWUvTmV3V2luZG93SGFuZGxlcg=="
-    @loaded="XpackLoaded"
-    @load-fail="XpackLoaded"
-  />
-  <xpack-component jsname="L2NvbXBvbmVudC90aHJlc2hvbGQtd2FybmluZy9UaHJlc2hvbGREaWFsb2c=" />
-  <canvas-cache-dialog ref="canvasCacheOutRef" @doUseCache="doUseCache"></canvas-cache-dialog>
+      <canvas-cache-dialog ref="canvasCacheOutRef" @doUseCache="doUseCache"></canvas-cache-dialog>
   <dv-preview
     v-if="fullscreenFlag"
     style="z-index: 10"

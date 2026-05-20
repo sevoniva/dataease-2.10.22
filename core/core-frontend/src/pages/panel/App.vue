@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { shallowRef, defineAsyncComponent, ref, onMounted, nextTick } from 'vue'
+import { shallowRef, defineAsyncComponent, onMounted, nextTick } from 'vue'
 import { propTypes } from '@/utils/propTypes'
 import { useEmitt } from '@/hooks/web/useEmitt'
 
@@ -24,7 +24,6 @@ const DashboardPanel = defineAsyncComponent(
 )
 
 const Preview = defineAsyncComponent(() => import('@/views/data-visualization/PreviewCanvas.vue'))
-const XpackComponent = defineAsyncComponent(() => import('@/components/plugin/src/index.vue'))
 
 const props = defineProps({
   componentName: propTypes.string.def('Iframe')
@@ -45,32 +44,15 @@ const componentMap = {
   DatasetEditor
 }
 
-const isDataFilling = ref(false)
-const dataFillingPath = ref('')
 const showComponent = ref(false)
 
 const changeCurrentComponent = val => {
-  isDataFilling.value = false
   showComponent.value = true
   currentComponent.value = undefined
-  if (val && val.includes('DataFilling')) {
-    if (val === 'DataFilling') {
-      dataFillingPath.value = 'L21lbnUvZGF0YS9kYXRhLWZpbGxpbmcvbWFuYWdlL2luZGV4'
-    } else if (val === 'DataFillingEditor') {
-      dataFillingPath.value = 'L21lbnUvZGF0YS9kYXRhLWZpbGxpbmcvbWFuYWdlL2Zvcm0vaW5kZXg='
-    } else if (val === 'DataFillingHandler') {
-      dataFillingPath.value = 'L21lbnUvZGF0YS9kYXRhLWZpbGxpbmcvZmlsbC9UYWJQYW5lVGFibGU='
-    }
-    nextTick(() => {
-      currentComponent.value = XpackComponent
-      isDataFilling.value = true
-    })
-  } else {
-    nextTick(() => {
-      currentComponent.value = componentMap[val]
-      showComponent.value = false
-    })
-  }
+  nextTick(() => {
+    currentComponent.value = componentMap[val]
+    showComponent.value = false
+  })
 }
 
 useEmitt({
@@ -83,8 +65,5 @@ onMounted(() => {
 })
 </script>
 <template>
-  <component :is="currentComponent" v-if="!isDataFilling && !showComponent"></component>
-  <template v-else>
-    <component :is="currentComponent" :jsname="dataFillingPath"></component>
-  </template>
+  <component :is="currentComponent" v-if="!showComponent"></component>
 </template>

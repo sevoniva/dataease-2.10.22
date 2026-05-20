@@ -154,8 +154,8 @@ public class DeSqlparserUtils {
                     suffix = datasourceType.getSuffix();
                 } else {
                     if (LicenseUtil.licenseValid()) {
-                        List<XpackPluginsDatasourceVO> xpackPluginsDatasourceVOS = pluginManage.queryPluginDs();
-                        List<XpackPluginsDatasourceVO> list = xpackPluginsDatasourceVOS.stream().filter(ele -> StringUtils.equals(ele.getType(), value.getType())).toList();
+                        List<XpackPluginsDatasourceVO> pluginDatasourceList = pluginManage.queryPluginDs();
+                        List<XpackPluginsDatasourceVO> list = pluginDatasourceList.stream().filter(ele -> StringUtils.equals(ele.getType(), value.getType())).toList();
                         if (ObjectUtils.isNotEmpty(list)) {
                             XpackPluginsDatasourceVO first = list.getFirst();
                             prefix = first.getPrefix();

@@ -38,7 +38,6 @@ import io.dataease.extensions.datasource.vo.XpackPluginsDatasourceVO;
 import io.dataease.i18n.Translator;
 import io.dataease.job.schedule.CheckDsStatusJob;
 import io.dataease.job.schedule.ScheduleManager;
-import io.dataease.license.config.XpackInteract;
 import io.dataease.license.utils.LicenseUtil;
 import io.dataease.log.DeLog;
 import io.dataease.model.BusiNodeRequest;
@@ -647,7 +646,6 @@ public class DatasourceServer implements DatasourceApi {
     @Transactional
     @DeLog(id = "#p0", ot = LogOT.DELETE, st = LogST.DATASOURCE)
     @Override
-    @XpackInteract(value = "datasourceResourceTree", before = false)
     public void delete(Long datasourceId) throws DEException {
         Objects.requireNonNull(io.dataease.utils.CommonBeanFactory.getBean(DatasourceServer.class)).recursionDel(datasourceId);
     }
@@ -1070,8 +1068,8 @@ public class DatasourceServer implements DatasourceApi {
     private void preCheckDs(DatasourceDTO datasource) throws DEException {
         List<String> list = datasourceTypes().stream().map(DatasourceConfiguration.DatasourceType::getType).collect(Collectors.toList());
         if (LicenseUtil.licenseValid()) {
-            List<XpackPluginsDatasourceVO> xpackPluginsDatasourceVOS = pluginManage.queryPluginDs();
-            xpackPluginsDatasourceVOS.forEach(ele -> list.add(ele.getType()));
+            List<XpackPluginsDatasourceVO> pluginDatasourceList = pluginManage.queryPluginDs();
+            pluginDatasourceList.forEach(ele -> list.add(ele.getType()));
         }
 
         if (!list.contains(datasource.getType())) {

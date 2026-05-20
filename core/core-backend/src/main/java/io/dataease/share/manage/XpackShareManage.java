@@ -16,7 +16,6 @@ import io.dataease.constant.AuthConstant;
 import io.dataease.constant.BusiResourceEnum;
 import io.dataease.exception.DEException;
 import io.dataease.i18n.Translator;
-import io.dataease.license.config.XpackInteract;
 import io.dataease.license.utils.LicenseUtil;
 import io.dataease.share.dao.auto.entity.CoreShareTicket;
 import io.dataease.share.dao.auto.entity.XpackShare;
@@ -201,8 +200,6 @@ public class XpackShareManage {
             default -> null;
         };
     }
-
-    @XpackInteract(value = "perFilterShareManage", recursion = true, invalid = true)
     public IPage<XpackShareGridVO> query(int pageNum, int pageSize, VisualizationWorkbranchQueryRequest request) {
         IPage<XpackSharePO> poiPage = proxy().querySharePage(pageNum, pageSize, request);
         List<XpackShareGridVO> vos = proxy().formatResult(poiPage.getRecords());

@@ -29,7 +29,6 @@ import io.dataease.extensions.view.dto.*;
 import io.dataease.extensions.view.filter.FilterTreeObj;
 import io.dataease.i18n.Lang;
 import io.dataease.i18n.Translator;
-import io.dataease.license.config.XpackInteract;
 import io.dataease.utils.BeanUtils;
 import io.dataease.utils.IDUtils;
 import io.dataease.utils.JsonUtil;
@@ -111,24 +110,19 @@ public class ChartViewManege {
     public void delete(Long id) {
         coreChartViewMapper.deleteById(id);
     }
-
-    @XpackInteract(value = "chartViewManage")
     public void disuse(List<Long> chartIdList) {
     }
 
     //镜像操作发布
-    @XpackInteract(value = "chartViewManage")
     public void publishThreshold(Long resourceId, List<Long> chartIdList) {
     }
 
     //镜像操作删除
-    @XpackInteract(value = "chartViewManage")
     public void removeThreshold(Long resourceId, String resourceTable) {
 
     }
 
     //镜像操作恢复
-    @XpackInteract(value = "chartViewManage")
     public void restoreThreshold(Long resourceId, String resourceTable) {
     }
 

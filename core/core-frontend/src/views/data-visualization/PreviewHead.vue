@@ -16,7 +16,6 @@ import DvDetailInfo from '@/views/common/DvDetailInfo.vue'
 import { useEmbedded } from '@/store/modules/embedded'
 import { storeApi, storeStatusApi } from '@/api/visualization/dataVisualization'
 import { ref, watch, computed } from 'vue'
-import { XpackComponent } from '@/components/plugin'
 import { useEmitt } from '@/hooks/web/useEmitt'
 import { exportPermission } from '@/utils/utils'
 import { useCache } from '@/hooks/web/useCache'
@@ -217,8 +216,7 @@ const initOpenHandler = newWindow => {
       </el-dropdown>
     </div>
   </div>
-  <XpackComponent ref="openHandler" jsname="L2NvbXBvbmVudC9lbWJlZGRlZC1pZnJhbWUvT3BlbkhhbmRsZXI=" />
-</template>
+  </template>
 
 <style lang="less">
 .pad12 {

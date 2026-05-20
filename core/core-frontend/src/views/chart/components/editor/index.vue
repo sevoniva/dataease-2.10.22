@@ -61,10 +61,8 @@ import { getWorldTree, listCustomGeoArea } from '@/api/map'
 import chartViewManager from '@/views/chart/components/js/panel'
 import DatasetSelect from '@/views/chart/components/editor/dataset-select/DatasetSelect.vue'
 import { useDraggable } from '@vueuse/core'
-import { PluginComponent } from '@/components/plugin'
 import { Field, getFieldByDQ, copyChartField, deleteChartField } from '@/api/chart'
 import ChartTemplateInfo from '@/views/chart/components/editor/common/ChartTemplateInfo.vue'
-import { XpackComponent } from '@/components/plugin'
 import { useEmbedded } from '@/store/modules/embedded'
 import { iconChartMap } from '@/components/icon-group/chart-list'
 import { iconFieldMap } from '@/components/icon-group/field-list'
@@ -2070,15 +2068,7 @@ const chartStyleScroll = (val: any) => {
             :themes="themes"
           />
           <template v-else-if="view.plugin?.isPlugin">
-            <plugin-component
-              :jsname="view.plugin.staticMap['editor-style']"
-              :view="view"
-              :dimension="state.dimension"
-              :quota="state.quota"
-              :themes="themes"
-              :emitter="emitter"
-            />
-          </template>
+                      </template>
           <template v-else>
             <chart-style
               v-if="chartStyleShow"
@@ -2250,20 +2240,7 @@ const chartStyleScroll = (val: any) => {
                         </el-popover>
                       </el-row>
                       <template v-if="view.plugin?.isPlugin">
-                        <plugin-component
-                          :jsname="view.plugin.staticMap['editor-data']"
-                          :view="view"
-                          :dimension="state.dimension"
-                          :quota="state.quota"
-                          :themes="themes"
-                          :emitter="emitter"
-                          @onDimensionItemChange="dimensionItemChange"
-                          @onDimensionItemRemove="dimensionItemRemove"
-                          @onNameEdit="showRename"
-                          @onCustomSort="onCustomSort"
-                          @valueFormatter="valueFormatter"
-                        />
-                      </template>
+                                              </template>
                       <template v-else>
                         <!--area-->
                         <el-row v-if="showAxis('area')" class="padding-lr drag-data">
@@ -3498,15 +3475,7 @@ const chartStyleScroll = (val: any) => {
                       class="drag_main_area"
                     >
                       <template v-if="view.plugin?.isPlugin">
-                        <plugin-component
-                          :jsname="view.plugin.staticMap['editor-style']"
-                          :view="view"
-                          :dimension="state.dimension"
-                          :quota="state.quota"
-                          :themes="themes"
-                          :emitter="emitter"
-                        />
-                      </template>
+                                              </template>
                       <template v-else>
                         <chart-style
                           v-if="chartStyleShow"
@@ -3558,15 +3527,7 @@ const chartStyleScroll = (val: any) => {
                   <el-container direction="vertical">
                     <el-scrollbar class="drag_main_area">
                       <template v-if="view.plugin?.isPlugin">
-                        <plugin-component
-                          :jsname="view.plugin.staticMap['editor-senior']"
-                          :view="view"
-                          :dimension="state.dimension"
-                          :quota="state.quota"
-                          :themes="themes"
-                          :emitter="emitter"
-                        />
-                      </template>
+                                              </template>
                       <template v-else>
                         <senior
                           :chart="view"
@@ -4227,8 +4188,7 @@ const chartStyleScroll = (val: any) => {
     </el-dialog>
   </div>
   <FilterTree ref="filterTree" @filter-data="changeFilterData" />
-  <XpackComponent ref="openHandler" jsname="L2NvbXBvbmVudC9lbWJlZGRlZC1pZnJhbWUvT3BlbkhhbmRsZXI=" />
-  <Teleport v-if="componentNameEdit" :to="'#component-name'">
+    <Teleport v-if="componentNameEdit" :to="'#component-name'">
     <input
       ref="componentNameInput"
       v-model="inputComponentName.name"

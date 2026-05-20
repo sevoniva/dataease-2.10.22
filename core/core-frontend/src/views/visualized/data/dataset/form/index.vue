@@ -72,7 +72,6 @@ import {
 import type { DatasetSyncLog, DatasetSyncTask, Table } from '@/api/dataset'
 import DatasetUnion from './DatasetUnion.vue'
 import { cloneDeep, debounce } from 'lodash-es'
-import { XpackComponent } from '@/components/plugin'
 import { iconFieldMap } from '@/components/icon-group/field-list'
 import { iconDatasourceMap } from '@/components/icon-group/datasource-list'
 interface DragEvent extends MouseEvent {
@@ -1620,8 +1619,6 @@ const saveAndBack = async () => {
   pushDataset()
 }
 
-let p = null
-const XpackLoaded = () => p(true)
 onMounted(async () => {
   isEdit.value = false
   await new Promise(r => (p = r))
@@ -3267,25 +3264,7 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
       <el-button type="primary" @click="confirmGroupField">{{ t('dataset.confirm') }} </el-button>
     </template>
   </el-dialog>
-  <XpackComponent
-    jsname="L2NvbXBvbmVudC9lbWJlZGRlZC1pZnJhbWUvTmV3V2luZG93SGFuZGxlcg=="
-    @loaded="XpackLoaded"
-    @load-fail="XpackLoaded"
-  />
-  <XpackComponent
-    jsname="L2NvbXBvbmVudC9wbHVnaW5zLWhhbmRsZXIvRHNDYXRlZ29yeUhhbmRsZXI="
-    @load-ds-plugin="loadDsPlugin"
-  />
-  <XpackComponent
-    v-if="state.dataSourceList"
-    ref="datasetCheckRef"
-    :is-edit="isEdit"
-    :ds-list="state.dataSourceList"
-    :ds-id="dataSource"
-    @back="pushDataset"
-    jsname="L2NvbXBvbmVudC9kYXRhc2V0L2luZGV4"
-  />
-</template>
+      </template>
 
 <style lang="less" scoped>
 @import '@/style/mixin.less';

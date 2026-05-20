@@ -433,8 +433,8 @@ public class DatasetSQLManage {
             return dto;
         } else {
             if (LicenseUtil.licenseValid()) {
-                List<XpackPluginsDatasourceVO> xpackPluginsDatasourceVOS = pluginManage.queryPluginDs();
-                List<XpackPluginsDatasourceVO> list = xpackPluginsDatasourceVOS.stream().filter(ele -> StringUtils.equals(ele.getType(), type)).toList();
+                List<XpackPluginsDatasourceVO> pluginDatasourceList = pluginManage.queryPluginDs();
+                List<XpackPluginsDatasourceVO> list = pluginDatasourceList.stream().filter(ele -> StringUtils.equals(ele.getType(), type)).toList();
                 if (ObjectUtils.isNotEmpty(list)) {
                     XpackPluginsDatasourceVO first = list.getFirst();
                     DsTypeDTO dto = new DsTypeDTO();

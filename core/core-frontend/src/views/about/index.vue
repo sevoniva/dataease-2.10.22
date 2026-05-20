@@ -103,7 +103,7 @@ const setLicense = lic => {
   }
 }
 const removeDistributeModule = () => {
-  const key = 'xpack-model-distributed'
+  const key = 'pluginBridge-model-distributed'
   localStorage.removeItem(key)
 }
 const importLic = file => {

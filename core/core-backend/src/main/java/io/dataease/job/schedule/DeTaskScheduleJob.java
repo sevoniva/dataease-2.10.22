@@ -3,24 +3,27 @@ package io.dataease.job.schedule;
 import io.dataease.license.utils.LicenseUtil;
 import io.dataease.utils.CommonBeanFactory;
 import io.dataease.utils.LogUtil;
-import org.quartz.Job;
-import org.quartz.JobDataMap;
-import org.quartz.JobExecutionContext;
-import org.quartz.JobExecutionException;
+import org.quartz.*;
 import org.springframework.stereotype.Component;
 
-@Component
-public class DeXpackDataSyncTaskScheduleJob implements Job {
+import java.util.Objects;
 
+@Component
+public class DeTaskScheduleJob implements Job {
 
     @Override
     public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
+        Trigger trigger = jobExecutionContext.getTrigger();
+        JobKey jobKey = trigger.getJobKey();
         JobDataMap jobDataMap = jobExecutionContext.getJobDetail().getJobDataMap();
-        DeXpackDataSyncTaskExecutor deTaskExecutor = CommonBeanFactory.getBean(DeXpackDataSyncTaskExecutor.class);
+        DeTaskExecutor deTaskExecutor = CommonBeanFactory.getBean(DeTaskExecutor.class);
         assert deTaskExecutor != null;
         try {
             LicenseUtil.validate();
-            deTaskExecutor.execute(jobDataMap);
+            boolean taskLoaded = deTaskExecutor.execute(jobDataMap);
+            if (!taskLoaded) {
+                Objects.requireNonNull(CommonBeanFactory.getBean(ScheduleManager.class)).removeJob(jobKey, trigger.getKey());
+            }
         } catch (Exception e) {
             LogUtil.error(e.getMessage(), e.getCause());
         }

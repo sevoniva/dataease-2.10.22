@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import io.dataease.api.menu.vo.MenuMeta;
 import io.dataease.api.menu.vo.MenuVO;
 import io.dataease.i18n.Translator;
-import io.dataease.license.config.XpackInteract;
 import io.dataease.menu.bo.MenuTreeNode;
 import io.dataease.menu.dao.auto.entity.CoreMenu;
 import io.dataease.menu.dao.auto.mapper.CoreMenuMapper;
@@ -38,8 +37,6 @@ public class MenuManage {
 
     @Value("${dataease.internal-lite.enabled:false}")
     private boolean internalLiteEnabled;
-
-    @XpackInteract(value = "menuApi")
     public List<MenuVO> query(List<CoreMenu> coreMenus) {
         List<CoreMenu> menus = internalLiteEnabled
                 ? coreMenus.stream().filter(menu -> INTERNAL_LITE_MENU_IDS.contains(menu.getId())).toList()
@@ -96,11 +93,11 @@ public class MenuManage {
         meta.setIcon(coreMenu.getIcon());
         menuVO.setMeta(meta);
 
-        menuVO.setPlugin(!internalLiteEnabled && isXpackMenu(coreMenu));
+        menuVO.setPlugin(!internalLiteEnabled && isCommercialMenu(coreMenu));
         return menuVO;
     }
 
-    private boolean isXpackMenu(CoreMenu coreMenu) {
+    private boolean isCommercialMenu(CoreMenu coreMenu) {
         if (coreMenu.getId().equals(21L)) return false;
         return coreMenu.getId().equals(7L)
                 || coreMenu.getPid().equals(7L)

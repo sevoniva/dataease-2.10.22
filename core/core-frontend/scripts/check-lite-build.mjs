@@ -52,6 +52,19 @@ function assertFileDoesNotContain(relativePath, patterns, message) {
   if (!fs.existsSync(fullPath)) {
     return
   }
+  if (fs.statSync(fullPath).isDirectory()) {
+    const matchedFiles = walk(fullPath).filter(file => {
+      if (!/\.(vue|ts|js|json|mjs)$/i.test(file)) {
+        return false
+      }
+      const content = fs.readFileSync(file, 'utf8')
+      return patterns.some(pattern => pattern.test(content))
+    })
+    if (matchedFiles.length) {
+      fail(message, matchedFiles)
+    }
+    return
+  }
   const content = fs.readFileSync(fullPath, 'utf8')
   const matched = patterns.some(pattern => pattern.test(content))
   if (matched) {
@@ -74,6 +87,7 @@ function assertFileContains(relativePath, patterns, message) {
 assertMissing('installer/dataease/docker-compose-apisix.yml', '内部轻量安装包不应包含 APISIX Compose 模板')
 assertMissing('installer/dataease/apisix', '内部轻量安装包不应包含 APISIX 配置目录')
 assertMissing('core/core-frontend/src/api/plugin.ts', '内部轻量前端不应保留远程插件 API')
+assertMissing('core/core-frontend/src/components/plugin', '内部轻量前端不应保留远程插件组件目录')
 assertFileDoesNotContain(
   'core/core-backend/src/main/java/io/dataease/share/server/XpackShareServer.java',
   [/ConditionalOnProperty/, /internal-lite/],
@@ -84,16 +98,7 @@ assertFileDoesNotContain(
   [/ConditionalOnProperty/, /internal-lite/],
   '分享 ticket 接口必须在内部轻量模式下保留'
 )
-assertFileContains(
-  'core/core-frontend/src/components/plugin/src/index.vue',
-  [/defineExpose/, /load-ds-plugin/, /load-plugin-category/],
-  '插件兼容组件必须保留空实现事件，避免影响现有页面'
-)
-assertFileDoesNotContain(
-  'core/core-frontend/src/components/plugin/src/index.vue',
-  [/DEXPack/, /xpackModelApi/, /loadDistributed/, /\/xpackComponent\/content/],
-  '插件兼容组件不应加载远程 xpack 资源'
-)
+assertFileDoesNotContain('core/core-frontend/src', [/XpackComponent/, /PluginComponent/], '前端源码不应保留商业插件组件引用')
 
 if (!fs.existsSync(dist)) {
   fail('dist 不存在，请先执行 npm run build:base 或 npm run build:distributed')

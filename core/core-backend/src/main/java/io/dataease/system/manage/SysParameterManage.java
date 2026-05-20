@@ -6,7 +6,6 @@ import io.dataease.api.system.request.SQLBotConfigCreator;
 import io.dataease.api.system.vo.SettingItemVO;
 import io.dataease.api.system.vo.ShareBaseVO;
 import io.dataease.datasource.server.DatasourceServer;
-import io.dataease.license.config.XpackInteract;
 import io.dataease.system.dao.auto.entity.CoreSysSetting;
 import io.dataease.system.dao.auto.mapper.CoreSysSettingMapper;
 import io.dataease.system.dao.ext.mapper.ExtCoreSysSettingMapper;
@@ -138,13 +137,9 @@ public class SysParameterManage {
         queryWrapper.orderByAsc("sort");
         return coreSysSettingMapper.selectList(queryWrapper);
     }
-
-    @XpackInteract(value = "perSetting")
     public List<SettingItemVO> convert(List<CoreSysSetting> sysSettings) {
         return sysSettings.stream().sorted(Comparator.comparing(CoreSysSetting::getSort)).map(item -> BeanUtils.copyBean(new SettingItemVO(), item)).toList();
     }
-
-    @XpackInteract(value = "perSetting", replace = true)
     public List<Object> getUiList() {
         List<Object> result = new ArrayList<>();
         result.add(buildSettingItem("community", true));
@@ -152,8 +147,6 @@ public class SysParameterManage {
         result.add(buildSettingItem("demoTipsContent", demoTipsContent));
         return result;
     }
-
-    @XpackInteract(value = "perSetting", replace = true)
     public Integer defaultLogin() {
         return 0;
     }
@@ -227,8 +220,6 @@ public class SysParameterManage {
 
         extCoreSysSettingMapper.saveBatch(configList);
     }
-
-    @XpackInteract(value = "perSetting", before = false)
     @Transactional
     public void saveBasic(List<SettingItemVO> vos) {
         String key = "basic.";

@@ -13,7 +13,6 @@ import { useAppearanceStoreWithOut } from '@/store/modules/appearance'
 import { rsaEncryp } from '@/utils/encryption'
 import router from '@/router'
 import { ElMessage } from 'element-plus-secondary'
-import { XpackComponent } from '@/components/plugin'
 import { logoutHandler } from '@/utils/logout'
 import DeImage from '@/assets/login-desc-de.png'
 import elementResizeDetectorMaker from 'element-resize-detector'
@@ -35,9 +34,7 @@ const loginImageUrl = ref(null)
 const slogan = ref(null)
 const footContent = ref(null)
 const loginErrorMsg = ref('')
-const xpackLoginHandler = ref()
 const showDempTips = ref(false)
-const xpackInvalidPwd = ref()
 const demoTips = computed(() => {
   if (!showDempTips.value) {
     return ''
@@ -93,16 +90,7 @@ const handleLogin = () => {
       loginApi(param)
         .then(res => {
           const { token, exp, mfa } = res.data
-          if (!isLdap && !xpackLoadFail.value && xpackInvalidPwd.value?.invokeMethod) {
-            const param = {
-              methodName: 'init',
-              args: res.data
-            }
-            xpackInvalidPwd?.value.invokeMethod(param)
-            return
-          }
           if (!isLdap && mfa?.enabled) {
-            xpackLoginHandler.value?.invokeMethod({ methodName: 'toMfa', args: mfa })
             duringLogin.value = false
             return
           }
@@ -118,21 +106,6 @@ const handleLogin = () => {
     }
   })
 }
-const invalidPwdCb = cbParam => {
-  const val = cbParam['status']
-  duringLogin.value = !!val
-  if (val) {
-    const mfa = cbParam['mfa']
-    if (mfa?.enabled) {
-      xpackLoginHandler.value?.invokeMethod({ methodName: 'toMfa', args: mfa })
-      duringLogin.value = false
-      return
-    }
-    const queryRedirectPath = getCurLocation()
-    router.push({ path: queryRedirectPath })
-  }
-}
-const xpackLoadFail = ref(false)
 const loadingText = ref('加载中...')
 const loginContainer = ref()
 const loginContainerWidth = ref(0)
@@ -339,19 +312,6 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <XpackComponent
-                ref="xpackLoginHandler"
-                jsname="L2NvbXBvbmVudC9sb2dpbi9IYW5kbGVy"
-                @switch-tab="switchTab"
-                @auto-callback="autoCallback"
-                @load-fail="handlerFail"
-              />
-              <XpackComponent
-                ref="xpackInvalidPwd"
-                jsname="L2NvbXBvbmVudC9sb2dpbi9JbnZhbGlkUHdk"
-                @load-fail="() => (xpackLoadFail = true)"
-                @call-back="invalidPwdCb"
-              />
             </div>
 
             <div class="login-msg">

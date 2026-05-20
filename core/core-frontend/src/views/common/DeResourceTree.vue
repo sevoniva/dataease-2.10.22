@@ -42,7 +42,6 @@ import { useI18n } from '@/hooks/web/useI18n'
 import _ from 'lodash'
 import { useCache } from '@/hooks/web/useCache'
 import { findParentIdByChildIdRecursive, onInitReady } from '@/utils/canvasUtils'
-import { XpackComponent } from '@/components/plugin'
 import treeSort, { treeParentWeight } from '@/utils/treeSortUtils'
 import router from '@/router'
 import { cancelRequestBatch } from '@/config/axios/service'
@@ -785,8 +784,7 @@ defineExpose({
       />
     </el-scrollbar>
   </div>
-  <XpackComponent ref="openHandler" jsname="L2NvbXBvbmVudC9lbWJlZGRlZC1pZnJhbWUvT3BlbkhhbmRsZXI=" />
-</template>
+  </template>
 <style lang="less" scoped>
 .filter-icon-span {
   border: 1px solid #d9dcdf;
