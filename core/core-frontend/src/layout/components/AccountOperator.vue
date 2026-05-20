@@ -6,7 +6,6 @@ import { Icon } from '@/components/icon-custom'
 import { useUserStoreWithOut } from '@/store/modules/user'
 import { logoutApi } from '@/api/login'
 import { logoutHandler } from '@/utils/logout'
-import { XpackComponent } from '@/components/plugin'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useEmitt } from '@/hooks/web/useEmitt'
 import AboutPage from '@/views/about/index.vue'
@@ -40,24 +39,6 @@ const logout = async () => {
 
 const linkLoaded = items => {
   items.forEach(item => linkList.value.push(item))
-  linkList.value.sort(compare('id'))
-}
-const xpackLinkLoaded = items => {
-  let len = linkList.value.length
-  while (len--) {
-    if (linkList.value[len]?.id === 2 && linkList.value[len]?.link === '/modify-pwd/index') {
-      linkList.value.splice(len, 1)
-    }
-  }
-  items.forEach(item => linkList.value.push(item))
-  if (inPlatformClient.value) {
-    len = linkList.value.length
-    while (len--) {
-      if (linkList.value[len]?.id === 2) {
-        linkList.value.splice(len, 1)
-      }
-    }
-  }
   linkList.value.sort(compare('id'))
 }
 
@@ -177,7 +158,6 @@ if (uid.value === '1') {
   </el-popover>
 
   <AboutPage />
-  <XpackComponent jsname="dWNlbnRlci1oYW5kbGVy" @loaded="xpackLinkLoaded" />
 </template>
 
 <style lang="less">

@@ -47,6 +47,8 @@ quartz:
 dataease:
   version: '@project.version@'
   login_timeout: 2880
+  internal-lite:
+    enabled: true
   xpack-front-distributed: true
   origin-list: http://localhost:8080
   apisix-api:

@@ -23,3 +23,7 @@ spring:
 
 mybatis-plus:
   mapper-locations: classpath:mybatis/*.xml
+
+dataease:
+  internal-lite:
+    enabled: true

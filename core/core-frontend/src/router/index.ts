@@ -21,22 +21,6 @@ export const routes: AppRouteRecordRaw[] = [
     ]
   },
   {
-    path: '/sqlbot',
-    name: 'sqlbot',
-    component: () => import('@/layout/index.vue'),
-    hidden: true,
-    meta: {},
-    children: [
-      {
-        path: 'index',
-        name: 'clt',
-        hidden: true,
-        component: () => import('@/views/sqlbot/index.vue'),
-        meta: { hidden: true }
-      }
-    ]
-  },
-  {
     path: '/login',
     name: 'login',
     hidden: true,

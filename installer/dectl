@@ -15,6 +15,8 @@ set -a
 source ${DE_RUNNING_BASE}/.env
 set +a
 export COMPOSE_HTTP_TIMEOUT=180
+DE_INTERNAL_LITE=${DE_INTERNAL_LITE:-true}
+DE_INSTALL_MAPS=${DE_INSTALL_MAPS:-false}
 
 docker-compose version >/dev/null 2>&1
 if [ $? -ne 0 ]; then
@@ -49,6 +51,9 @@ function usage() {
    echo "  version               查看 DATAEASE 版本"
 }
 function _generate_compose_file_args() {
+   if [[ "$DE_INTERNAL_LITE" == "true" ]];then
+      return
+   fi
    if [[ $DE_INSTALL_MODE != "community" ]];then
       if [[ -f $DE_RUNNING_BASE/docker-compose-apisix.yml ]] && [[ "$DE_EXTERNAL_APISIX" != "true" ]];then
          compose_files="${compose_files} -f docker-compose-apisix.yml"
@@ -64,6 +69,9 @@ function _generate_compose_file_args() {
    fi
 }
 function _check_apisix_init() {
+   if [[ "$DE_INTERNAL_LITE" == "true" ]];then
+      return
+   fi
    if [[ $DE_INSTALL_MODE != "community" ]] && [[ "$DE_EXTERNAL_APISIX" != "true" ]];then
       _prepare_apisix
    fi

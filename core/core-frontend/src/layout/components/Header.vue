@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import logo from '@/assets/svg/logo.svg'
-import logo_sqlbot from '@/assets/svg/logo_sqlbot.svg'
 import msgNotice from '@/assets/svg/icon_notification_outlined.svg'
 import dvAi from '@/assets/svg/dv-ai.svg'
 import dvPreviewDownload from '@/assets/svg/icon_download_outlined.svg'
@@ -17,13 +16,11 @@ import { useRouter, useRoute } from 'vue-router_2'
 import TopDoc from '@/layout/components/TopDoc.vue'
 import AccountOperator from '@/layout/components/AccountOperator.vue'
 import { isDesktop } from '@/utils/ModelUtil'
-import { XpackComponent } from '@/components/plugin'
 import { useAppearanceStoreWithOut } from '@/store/modules/appearance'
 import AiComponent from '@/layout/components/AiComponent.vue'
 import { findBaseParams } from '@/api/aiComponent'
 import AiTips from '@/layout/components/AiTips.vue'
 import DesktopSetting from './DesktopSetting.vue'
-import request from '@/config/axios'
 
 const appearanceStore = useAppearanceStoreWithOut()
 const { push } = useRouter()
@@ -43,10 +40,6 @@ const handleAiClick = () => {
 }
 const { t } = useI18n()
 
-const handleSQLBotClick = () => {
-  push('/sqlbot/index')
-}
-const sqlbotEnabled = ref(false)
 const desktop = isDesktop()
 const activeIndex = computed(() => {
   if (route.path.includes('system')) {
@@ -112,17 +105,7 @@ const msgNoticePush = () => {
 }
 
 const badgeCount = ref('0')
-const loadSqlbotInfo = () => {
-  const url = '/sysParameter/sqlbot'
-  request.get({ url }).then(res => {
-    if (res && res.data) {
-      const { domain, id, enabled, valid } = res.data
-      sqlbotEnabled.value = domain && id && enabled && valid
-    }
-  })
-}
 onMounted(() => {
-  loadSqlbotInfo()
   initShowSystem()
   initShowToolbox()
   initShowMsg()
@@ -150,12 +133,6 @@ onMounted(() => {
       <HeaderMenuItem v-for="menu in routers" :key="menu.path" :menu="menu"></HeaderMenuItem>
     </el-menu>
     <div class="operate-setting" v-if="!desktop">
-      <XpackComponent jsname="c3dpdGNoZXI=" />
-      <el-tooltip effect="dark" content="SQLBot" placement="bottom">
-        <el-icon style="margin: 0 10px" class="ai-icon copilot-icon" v-if="sqlbotEnabled">
-          <Icon name="copilot"><logo_sqlbot @click="handleSQLBotClick" class="svg-icon" /></Icon>
-        </el-icon>
-      </el-tooltip>
       <el-tooltip effect="dark" :content="t('commons.assistant')" placement="bottom">
         <el-icon
           style="margin: 0 10px"

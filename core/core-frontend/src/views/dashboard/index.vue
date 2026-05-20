@@ -23,7 +23,6 @@ import { useEmbedded } from '@/store/modules/embedded'
 import { snapshotStoreWithOut } from '@/store/modules/data-visualization/snapshot'
 import { interactiveStoreWithOut } from '@/store/modules/interactive'
 import { watermarkFind } from '@/api/watermark'
-import { XpackComponent } from '@/components/plugin'
 import { Base64 } from 'js-base64'
 import CanvasCacheDialog from '@/components/visualization/CanvasCacheDialog.vue'
 import { deepCopy } from '@/utils/utils'
@@ -34,7 +33,6 @@ import eventBus from '@/utils/eventBus'
 import { useI18n } from '@/hooks/web/useI18n'
 import DashboardHiddenComponent from '@/components/dashboard/DashboardHiddenComponent.vue'
 import { recoverToPublished } from '@/api/visualization/dataVisualization'
-import SqlAssistant from '@/views/sqlbot/assistant.vue'
 import { contextmenuStoreWithOut } from '@/store/modules/data-visualization/contextmenu'
 const contextmenuStore = contextmenuStoreWithOut()
 const embeddedStore = useEmbedded()
@@ -142,8 +140,6 @@ const onMobileConfig = () => {
 
 const loadFinish = ref(false)
 const newWindowFromDiv = ref(false)
-let p = null
-const XpackLoaded = () => p(true)
 
 const doUseCache = flag => {
   const canvasCache = wsCache.get('DE-DV-CATCH-' + state.resourceId)
@@ -192,7 +188,6 @@ onMounted(async () => {
   if (window.location.hash.includes('#/dashboard')) {
     newWindowFromDiv.value = true
   }
-  await new Promise(r => (p = r))
   loadFinish.value = true
   useEmitt({
     name: 'mobileConfig',
@@ -343,7 +338,6 @@ onUnmounted(() => {
       :class="{ 'preview-content': editMode === 'preview' }"
       element-loading-background="rgba(0, 0, 0, 0)"
     >
-      <!--      <SqlAssistant></SqlAssistant>-->
       <!-- 中间画布 -->
       <main class="center" :class="{ 'de-screen-full': fullscreenFlag }">
         <de-canvas
@@ -416,12 +410,6 @@ onUnmounted(() => {
     @pcMode="mobileConfig = false"
     v-else-if="loadFinish && mobileConfig"
   ></MobileConfigPanel>
-  <XpackComponent
-    jsname="L2NvbXBvbmVudC9lbWJlZGRlZC1pZnJhbWUvTmV3V2luZG93SGFuZGxlcg=="
-    @loaded="XpackLoaded"
-    @load-fail="XpackLoaded"
-  />
-  <xpack-component jsname="L2NvbXBvbmVudC90aHJlc2hvbGQtd2FybmluZy9UaHJlc2hvbGREaWFsb2c=" />
   <canvas-cache-dialog ref="canvasCacheOutRef" @doUseCache="doUseCache"></canvas-cache-dialog>
 </template>
 

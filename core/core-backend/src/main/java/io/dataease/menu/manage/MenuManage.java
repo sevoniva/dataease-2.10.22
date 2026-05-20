@@ -12,12 +12,14 @@ import io.dataease.utils.BeanUtils;
 import jakarta.annotation.Resource;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
@@ -27,13 +29,22 @@ public class MenuManage {
 
     private final static int ROOTID = 0;
 
+    private static final Set<Long> INTERNAL_LITE_MENU_IDS = Set.of(
+            1L, 2L, 3L, 4L, 5L, 6L, 11L, 12L, 15L, 16L, 64L
+    );
+
     @Resource
     private CoreMenuMapper coreMenuMapper;
 
+    @Value("${dataease.internal-lite.enabled:false}")
+    private boolean internalLiteEnabled;
 
     @XpackInteract(value = "menuApi")
     public List<MenuVO> query(List<CoreMenu> coreMenus) {
-        List<MenuTreeNode> menuTreeNodes = new ArrayList<>(coreMenus.stream().map(menu -> BeanUtils.copyBean(new MenuTreeNode(), menu)).toList());
+        List<CoreMenu> menus = internalLiteEnabled
+                ? coreMenus.stream().filter(menu -> INTERNAL_LITE_MENU_IDS.contains(menu.getId())).toList()
+                : coreMenus;
+        List<MenuTreeNode> menuTreeNodes = new ArrayList<>(menus.stream().map(menu -> BeanUtils.copyBean(new MenuTreeNode(), menu)).toList());
         menuTreeNodes.sort(Comparator.comparing(MenuTreeNode::getMenuSort));
         List<MenuTreeNode> treeNodes = buildPOTree(menuTreeNodes);
         return convertTree(treeNodes);
@@ -85,7 +96,7 @@ public class MenuManage {
         meta.setIcon(coreMenu.getIcon());
         menuVO.setMeta(meta);
 
-        menuVO.setPlugin(isXpackMenu(coreMenu));
+        menuVO.setPlugin(!internalLiteEnabled && isXpackMenu(coreMenu));
         return menuVO;
     }
 

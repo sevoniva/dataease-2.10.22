@@ -75,6 +75,8 @@ function check_and_prepare_env_params() {
       log_content "全新安装"
    fi
    set +a
+   DE_INTERNAL_LITE=${DE_INTERNAL_LITE:-true}
+   DE_INSTALL_MAPS=${DE_INSTALL_MAPS:-false}
 
    read available_disk <<< $(df -H --output=avail "${DE_BASE}" | tail -1)
    disk_num=${available_disk%[KMGTP]}
@@ -109,10 +111,18 @@ function prepare_de_run_base() {
    env | grep DE_ >.env
 
    mkdir -p ${DE_RUN_BASE}/{cache,logs,conf}
-   mkdir -p ${DE_RUN_BASE}/data/{mysql,static-resource,map,etcd_data,geo,appearance,exportData,plugin,font,i18n}
-   mkdir -p ${DE_RUN_BASE}/apisix/logs
-   mkdir -p ${DE_RUN_BASE}/task/logs
-   chmod 777 ${DE_RUN_BASE}/apisix/logs ${DE_RUN_BASE}/data/etcd_data ${DE_RUN_BASE}/task/logs
+   mkdir -p ${DE_RUN_BASE}/data/{mysql,static-resource,appearance,exportData,font,i18n}
+
+   if [[ "${DE_INSTALL_MAPS}" == "true" ]]; then
+      mkdir -p ${DE_RUN_BASE}/data/{map,geo}
+   fi
+
+   if [[ "${DE_INTERNAL_LITE}" != "true" ]]; then
+      mkdir -p ${DE_RUN_BASE}/data/{etcd_data,plugin}
+      mkdir -p ${DE_RUN_BASE}/apisix/logs
+      mkdir -p ${DE_RUN_BASE}/task/logs
+      chmod 777 ${DE_RUN_BASE}/apisix/logs ${DE_RUN_BASE}/data/etcd_data ${DE_RUN_BASE}/task/logs
+   fi
 
    if [ "${DE_EXTERNAL_MYSQL}" = "false" ]; then
       sed -i -e "s/^      DE_MYSQL_HOST/      ${DE_MYSQL_HOST}/g" docker-compose.yml
@@ -134,9 +144,11 @@ function prepare_de_run_base() {
       fi
    done
 
-   log_content "复制地图文件"
-   if [ -d ${DE_RUN_BASE}/data/map ] || [ -d ${DE_RUN_BASE}/mapFiles ]; then
+   if [[ "${DE_INSTALL_MAPS}" == "true" ]] && [ -d ${DE_RUN_BASE}/mapFiles ] && compgen -G "${DE_RUN_BASE}/mapFiles/*" >/dev/null; then
+      log_content "复制地图文件"
       mv ${DE_RUN_BASE}/mapFiles/* ${DE_RUN_BASE}/data/map/
+   else
+      log_content "跳过地图文件复制"
    fi
 }
 
@@ -329,7 +341,7 @@ function start_de_service() {
    systemctl start dataease 2>&1 | tee -a ${CURRENT_DIR}/install.log
 
    access_port=$DE_PORT
-   if [[ $DE_INSTALL_MODE != "community" ]];then
+   if [[ $DE_INSTALL_MODE != "community" ]] && [[ "$DE_INTERNAL_LITE" != "true" ]];then
       access_port=$DE_APISIX_PORT
    fi
 
